@@ -1,5 +1,5 @@
-from ..models import Handle, Segment
-from ..path_ops import approximate_cubic, approximate_quadratic
+from ..core import Handle, Segment
+from ..core import approximate_cubic, approximate_quadratic
 from .constants import (
     ALL_SHAPES_COLOR,
     CENTER_GUIDE_COLOR,

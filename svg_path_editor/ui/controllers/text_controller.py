@@ -1,7 +1,7 @@
 import re
 from tkinter import messagebox, simpledialog
 
-from ...path_ops import shape_to_text
+from ...core import shape_to_text
 from ...application import UpdateShapeCommand
 from .base import BaseController
 

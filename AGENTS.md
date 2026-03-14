@@ -4,7 +4,7 @@
 A skill is a set of local instructions stored in a `SKILL.md` file. Use the project-local skill below when the task matches its trigger.
 
 ### Available skills
-- svg-editor-architecture: Summarize and reuse this project's Python Tkinter SVG editor architecture. Use when explaining the repository structure, identifying the design patterns in use, or extending the editor while preserving its application/view/controller split and command-based undo-redo model. (file: skills/svg-editor-architecture/SKILL.md)
+- svg-editor-maintenance: Maintain and extend this project's Python Tkinter SVG editor while preserving its layered `core/application/ui` architecture, command-based undo-redo model, preview rendering split, and controller boundaries. Use when refactoring structure, adding features, documenting patterns, or deciding where new code should live. (file: skills/svg-editor-maintenance/SKILL.md)
 
 ### How to use skills
 - Discovery: The skill list above is the set of project-local skills available in this repository.

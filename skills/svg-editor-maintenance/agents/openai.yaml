@@ -1,0 +1,4 @@
+interface:
+  display_name: "SVG Editor Maintenance"
+  short_description: "维护本项目 SVG 编辑器的分层、模式与扩展边界。"
+  default_prompt: "Use $svg-editor-maintenance to refactor or extend this Tkinter SVG editor while preserving its core, application, and UI layering."
