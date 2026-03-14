@@ -19,7 +19,7 @@ class EditorView:
 
     def _build_ui(self):
         self.root.geometry("1680x920")
-        self.root.minsize(1320, 760)
+        self.root.minsize(1480, 820)
 
         self.toolbar = EditorToolbar(self.root, self.path_var)
         self.workspace = EditorWorkspace(
