@@ -1,3 +1,4 @@
+import copy
 import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -96,14 +97,31 @@ class SVGPathDocument:
             elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS
         ]
 
+    def _build_serializable_tree(self):
+        if self.tree is None or self.root is None:
+            raise RuntimeError("No SVG loaded.")
+        root_copy = copy.deepcopy(self.root)
+        editable_elements = [elem for elem in root_copy.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
+        for element in editable_elements:
+            normalize_element_colors_for_css(element)
+        return ET.ElementTree(root_copy)
+
+    def to_svg_string(self) -> str:
+        tree = self._build_serializable_tree()
+        ET.register_namespace("", SVG_NS)
+        xml_bytes = ET.tostring(tree.getroot(), encoding="utf-8")
+        return '<?xml version="1.0" encoding="utf-8"?>\n' + xml_bytes.decode("utf-8")
+
     def save(self, file_path: Path | None = None):
         if self.tree is None:
             raise RuntimeError("No SVG loaded.")
         target = file_path or self.file_path
         if target is None:
             raise RuntimeError("No save location available.")
-        for element in self.editable_elements:
-            normalize_element_colors_for_css(element)
+        tree = self._build_serializable_tree()
         ET.register_namespace("", SVG_NS)
-        self.tree.write(target, encoding="utf-8", xml_declaration=True)
+        tree.write(target, encoding="utf-8", xml_declaration=True)
+        self.tree = tree
+        self.root = tree.getroot()
+        self.editable_elements = [elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
         self.file_path = target

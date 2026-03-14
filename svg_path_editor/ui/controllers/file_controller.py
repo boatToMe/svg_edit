@@ -42,9 +42,16 @@ class FileController(BaseController):
             self.view.canvas.delete("all")
             self.view.set_status("SVG 已加载，但没有找到支持编辑的元素。")
 
+    def _preview_svg_before_save(self) -> bool:
+        svg_code = self.session.document.to_svg_string()
+        return self.app.code_preview_view.ask(svg_code)
+
     def save_file(self):
         try:
             self.app.text_controller.commit_text_if_needed(record_history=False)
+            if not self._preview_svg_before_save():
+                self.view.set_status("已取消保存。")
+                return
             self.session.save()
             self.view.set_status(f"已保存到 {self.session.document.file_path}")
         except Exception as exc:
@@ -59,6 +66,9 @@ class FileController(BaseController):
             return
         try:
             self.app.text_controller.commit_text_if_needed(record_history=False)
+            if not self._preview_svg_before_save():
+                self.view.set_status("已取消另存为。")
+                return
             self.session.save(Path(file_name))
             self.view.set_status(f"已保存到 {file_name}")
         except Exception as exc:

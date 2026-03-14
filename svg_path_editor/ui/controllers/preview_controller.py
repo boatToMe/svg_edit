@@ -24,9 +24,6 @@ class PreviewController(BaseController):
         self.renderer = PreviewRenderer(strip_ns)
 
     def open_preview(self):
-        if self.session.document.root is None:
-            messagebox.showinfo("无法预览", "请先打开一个 SVG 文件。")
-            return
         self.preview.show()
         if not self._bindings_ready:
             self.preview.apply_button.configure(command=self.apply_preview_size)
@@ -72,7 +69,7 @@ class PreviewController(BaseController):
             self.load_scope_settings()
 
     def redraw_if_open(self):
-        if self.preview.is_open() and self.preview.window.state() != "withdrawn":
+        if self.preview.is_open():
             self.refresh_target_options(reload_fields=False)
             self.redraw_preview()
 
@@ -93,21 +90,21 @@ class PreviewController(BaseController):
     def start_target_flash(self, target_index: int):
         self.flash_target_index = target_index
         self.flash_step_remaining = FLASH_STEPS
-        if self.flash_after_id is not None and self.preview.window is not None:
-            self.preview.window.after_cancel(self.flash_after_id)
+        if self.flash_after_id is not None and self.preview.frame is not None:
+            self.preview.frame.after_cancel(self.flash_after_id)
             self.flash_after_id = None
         self.redraw_preview()
         self.schedule_flash_step()
 
     def schedule_flash_step(self):
-        if self.preview.window is None:
+        if self.preview.frame is None:
             return
         if self.flash_step_remaining <= 0:
             self.flash_target_index = None
             self.flash_after_id = None
             self.redraw_preview()
             return
-        self.flash_after_id = self.preview.window.after(FLASH_INTERVAL_MS, self.advance_flash)
+        self.flash_after_id = self.preview.frame.after(FLASH_INTERVAL_MS, self.advance_flash)
 
     def advance_flash(self):
         self.flash_step_remaining -= 1
@@ -168,7 +165,7 @@ class PreviewController(BaseController):
         self.preview.linejoin_var.set(override.get("stroke-linejoin", INHERIT) or INHERIT)
 
     def pick_color(self, target_var):
-        color = colorchooser.askcolor(color=target_var.get() or "#111827", title="选择颜色", parent=self.preview.window)
+        color = colorchooser.askcolor(color=target_var.get() or "#111827", title="选择颜色", parent=self.root)
         if not color or not color[1]:
             return
         target_var.set(color[1])

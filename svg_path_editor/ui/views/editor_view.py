@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 
+from .components import EditorToolbar, EditorWorkspace
+
 
 class EditorView:
     def __init__(self, root: tk.Tk):
@@ -16,100 +18,41 @@ class EditorView:
         self._build_ui()
 
     def _build_ui(self):
-        self.root.geometry("1360x880")
-        self.root.minsize(1080, 760)
-        top = ttk.Frame(self.root, padding=8)
-        top.pack(fill="x")
-        self.open_button = ttk.Button(top, text="打开 SVG")
-        self.open_button.pack(side="left")
-        self.save_button = ttk.Button(top, text="保存")
-        self.save_button.pack(side="left", padx=(8, 0))
-        self.save_as_button = ttk.Button(top, text="另存为")
-        self.save_as_button.pack(side="left", padx=(8, 0))
-        self.preview_button = ttk.Button(top, text="预览")
-        self.preview_button.pack(side="left", padx=(8, 0))
-        ttk.Label(top, text="元素：").pack(side="left", padx=(18, 6))
-        self.path_combo = ttk.Combobox(top, textvariable=self.path_var, state="readonly", width=42, values=[])
-        self.path_combo.pack(side="left", fill="x", expand=True)
+        self.root.geometry("1680x920")
+        self.root.minsize(1320, 760)
 
-        self.main = ttk.PanedWindow(self.root, orient="horizontal")
-        self.main.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-        left = ttk.Frame(self.main, padding=(0, 0, 8, 0))
-        right = ttk.Frame(self.main)
-        self.main.add(left, weight=4)
-        self.main.add(right, weight=2)
+        self.toolbar = EditorToolbar(self.root, self.path_var)
+        self.workspace = EditorWorkspace(
+            self.root,
+            self.guide_axis_var,
+            self.guide_value_var,
+            self.drag_step_var,
+        )
 
-        self.canvas = tk.Canvas(left, background="#f8fafc", highlightthickness=0)
-        self.canvas.pack(fill="both", expand=True)
+        self.open_button = self.toolbar.open_button
+        self.save_button = self.toolbar.save_button
+        self.save_as_button = self.toolbar.save_as_button
+        self.preview_button = self.toolbar.preview_button
+        self.path_combo = self.toolbar.path_combo
 
-        inspector = ttk.LabelFrame(right, text="几何数据", padding=8)
-        inspector.pack(fill="x")
-        self.text = tk.Text(inspector, wrap="word", font=("Consolas", 11), height=7)
-        self.text.pack(fill="x", expand=False)
-        self.text.tag_configure("number_default", foreground="#0f172a")
-        self.text.tag_configure("number_focus", foreground="#2563eb")
-        self.text.tag_configure("number_selected", foreground="#dc2626")
-        text_buttons = ttk.Frame(inspector)
-        text_buttons.pack(fill="x", pady=(8, 0))
-        self.apply_text_button = ttk.Button(text_buttons, text="应用文本")
-        self.apply_text_button.pack(side="left")
-        self.reload_button = ttk.Button(text_buttons, text="重新载入")
-        self.reload_button.pack(side="left", padx=(8, 0))
-        self.batch_replace_button = ttk.Button(text_buttons, text="批量修改同值")
-        self.batch_replace_button.pack(side="left", padx=(8, 0))
+        self.preview_host = self.workspace.preview_pane.host
+        self.canvas = self.workspace.canvas_pane.canvas
+        self.inspector = self.workspace.inspector
 
-        editor_box = ttk.LabelFrame(right, text="编辑设置", padding=8)
-        editor_box.pack(fill="x", pady=(8, 0))
-        step_row = ttk.Frame(editor_box)
-        step_row.pack(fill="x")
-        ttk.Label(step_row, text="拖动步长").pack(side="left")
-        self.drag_step_entry = ttk.Entry(step_row, textvariable=self.drag_step_var, width=10)
-        self.drag_step_entry.pack(side="left", padx=(8, 6))
-        ttk.Label(step_row, text="px").pack(side="left")
-        ttk.Label(editor_box, text="端点和辅助线拖动都会按这个步长吸附。", justify="left").pack(anchor="w", pady=(8, 0))
+        self.text = self.inspector.text
+        self.apply_text_button = self.inspector.apply_text_button
+        self.reload_button = self.inspector.reload_button
+        self.batch_replace_button = self.inspector.batch_replace_button
+        self.drag_step_entry = self.inspector.drag_step_entry
+        self.guide_axis_combo = self.inspector.guide_axis_combo
+        self.guide_value_entry = self.inspector.guide_value_entry
+        self.add_guide_button = self.inspector.add_guide_button
+        self.add_focus_x_button = self.inspector.add_focus_x_button
+        self.add_focus_y_button = self.inspector.add_focus_y_button
+        self.delete_guide_button = self.inspector.delete_guide_button
+        self.clear_guides_button = self.inspector.clear_guides_button
+        self.guide_listbox = self.inspector.guide_listbox
 
-        guide_box = ttk.LabelFrame(right, text="辅助线", padding=8)
-        guide_box.pack(fill="x", pady=(8, 0))
-        guide_input = ttk.Frame(guide_box)
-        guide_input.pack(fill="x")
-        ttk.Label(guide_input, text="方向").pack(side="left")
-        self.guide_axis_combo = ttk.Combobox(guide_input, textvariable=self.guide_axis_var, values=["x", "y"], width=4, state="readonly")
-        self.guide_axis_combo.pack(side="left", padx=(6, 8))
-        ttk.Label(guide_input, text="位置").pack(side="left")
-        self.guide_value_entry = ttk.Entry(guide_input, textvariable=self.guide_value_var, width=10)
-        self.guide_value_entry.pack(side="left", padx=(6, 8))
-        self.add_guide_button = ttk.Button(guide_input, text="添加辅助线")
-        self.add_guide_button.pack(side="left")
-        guide_actions = ttk.Frame(guide_box)
-        guide_actions.pack(fill="x", pady=(8, 0))
-        self.add_focus_x_button = ttk.Button(guide_actions, text="添加焦点 X")
-        self.add_focus_x_button.pack(side="left")
-        self.add_focus_y_button = ttk.Button(guide_actions, text="添加焦点 Y")
-        self.add_focus_y_button.pack(side="left", padx=(8, 0))
-        self.delete_guide_button = ttk.Button(guide_actions, text="删除选中辅助线")
-        self.delete_guide_button.pack(side="left", padx=(8, 0))
-        self.clear_guides_button = ttk.Button(guide_actions, text="清空辅助线")
-        self.clear_guides_button.pack(side="left", padx=(8, 0))
-        list_frame = ttk.Frame(guide_box)
-        list_frame.pack(fill="x", pady=(8, 0))
-        self.guide_listbox = tk.Listbox(list_frame, height=6, exportselection=False)
-        self.guide_listbox.pack(side="left", fill="x", expand=True)
-        guide_scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.guide_listbox.yview)
-        guide_scrollbar.pack(side="right", fill="y")
-        self.guide_listbox.configure(yscrollcommand=guide_scrollbar.set)
-
-        help_box = ttk.LabelFrame(right, text="提示", padding=8)
-        help_box.pack(fill="x", pady=(8, 0))
-        ttk.Label(help_box, text=(
-            "画布会同时显示全部可编辑元素\n"
-            "当前元素高亮，节点可拖动\n"
-            "拖动会按编辑设置里的步长吸附\n"
-            "按住空格并左键拖动可移动画布\n"
-            "节点拖动后可用 Ctrl+Z 撤销、Ctrl+Y 重做\n"
-            "选中几何数据区数字时会高亮对应端点\n"
-            "可对选中的同值数字做批量替换\n"
-            "点击预览可按像素宽度查看渲染结果"
-        ), justify="left").pack(anchor="w")
         ttk.Label(self.root, textvariable=self.status_var, anchor="w", padding=(10, 6)).pack(fill="x")
 
     def set_element_labels(self, labels: list[str]):

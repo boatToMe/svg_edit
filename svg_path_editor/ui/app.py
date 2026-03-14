@@ -1,7 +1,7 @@
 import tkinter as tk
 
 from ..application import EditorSession, InteractionState
-from .views import EditorView, PreviewWindow
+from .views import EditorView, PreviewWindow, SVGCodePreviewDialog
 from .controllers import CanvasController, FileController, GuideController, PreviewController, ShortcutController, TextController
 from . import rendering
 
@@ -10,7 +10,8 @@ class SVGPathEditor:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.view = EditorView(root)
-        self.preview_view = PreviewWindow(root)
+        self.preview_view = PreviewWindow(self.view.preview_host)
+        self.code_preview_view = SVGCodePreviewDialog(root)
         self.session = EditorSession()
         self.state = InteractionState()
         self._pan_origin = None
@@ -23,6 +24,7 @@ class SVGPathEditor:
         self.shortcut_controller = ShortcutController(self)
 
         self._bind_events()
+        self.preview_controller.open_preview()
 
     def _bind_events(self):
         self.view.open_button.configure(command=self.file_controller.open_file)

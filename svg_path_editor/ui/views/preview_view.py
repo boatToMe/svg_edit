@@ -3,9 +3,10 @@ from tkinter import ttk
 
 
 class PreviewWindow:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.window: tk.Toplevel | None = None
+    def __init__(self, parent):
+        self.parent = parent
+        self.frame: ttk.Frame | None = None
+        self.window = None
         self.width_var = tk.StringVar(value="512")
         self.size_var = tk.StringVar(value="预览尺寸：512 x 512 px")
         self.scope_var = tk.StringVar(value="整体图形")
@@ -33,21 +34,17 @@ class PreviewWindow:
         self.reset_style_button = None
         self.pick_stroke_button = None
         self.pick_fill_button = None
-        self._placed_once = False
 
     def is_open(self) -> bool:
-        return self.window is not None and self.window.winfo_exists()
+        return self.frame is not None and self.frame.winfo_exists()
 
     def ensure_window(self):
         if self.is_open():
-            return self.window
-        self.window = tk.Toplevel(self.root)
-        self.window.title("SVG 预览")
-        self.window.geometry("820x920")
-        self.window.minsize(520, 560)
-        self.window.protocol("WM_DELETE_WINDOW", self.window.withdraw)
+            return self.frame
+        self.frame = ttk.Frame(self.parent)
+        self.frame.pack(fill="both", expand=True)
 
-        top = ttk.Frame(self.window, padding=8)
+        top = ttk.Frame(self.frame, padding=(0, 0, 0, 8))
         top.pack(fill="x")
         ttk.Label(top, text="目标宽度(px)：").pack(side="left")
         self.width_entry = ttk.Entry(top, textvariable=self.width_var, width=10)
@@ -60,16 +57,16 @@ class PreviewWindow:
         self.zoom_in_button.pack(side="left", padx=(8, 0))
         ttk.Label(top, textvariable=self.size_var).pack(side="right")
 
-        canvas_box = ttk.LabelFrame(self.window, text="预览画布", padding=8)
-        canvas_box.pack(fill="x", padx=8, pady=(0, 8))
+        canvas_box = ttk.LabelFrame(self.frame, text="预览画布", padding=8)
+        canvas_box.pack(fill="x", pady=(0, 8))
         canvas_row = ttk.Frame(canvas_box)
         canvas_row.pack(fill="x")
         ttk.Label(canvas_row, text="背景主题").pack(side="left")
         self.background_theme_combo = ttk.Combobox(canvas_row, textvariable=self.background_theme_var, values=["亮色", "暗色"], state="readonly", width=8)
         self.background_theme_combo.pack(side="left", padx=(8, 0))
 
-        style_box = ttk.LabelFrame(self.window, text="预览样式", padding=8)
-        style_box.pack(fill="x", padx=8, pady=(0, 8))
+        style_box = ttk.LabelFrame(self.frame, text="预览样式", padding=8)
+        style_box.pack(fill="x", pady=(0, 8))
 
         row1 = ttk.Frame(style_box)
         row1.pack(fill="x")
@@ -114,37 +111,14 @@ class PreviewWindow:
         self.reset_style_button.pack(side="left", padx=(8, 0))
         ttk.Label(style_box, text="颜色留空表示继承原始样式；圆角为预览近似效果，不会改原 SVG。", justify="left").pack(anchor="w", pady=(8, 0))
 
-        body = ttk.Frame(self.window, padding=(8, 0, 8, 8))
-        body.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(body, background="#ffffff", highlightthickness=1, highlightbackground="#cbd5e1")
+        self.canvas = tk.Canvas(self.frame, background="#ffffff", highlightthickness=1, highlightbackground="#cbd5e1")
         self.canvas.pack(fill="both", expand=True)
-        return self.window
-
-    def _place_beside_root(self):
-        if self.window is None or self._placed_once:
-            return
-        self.root.update_idletasks()
-        self.window.update_idletasks()
-        root_x = self.root.winfo_rootx()
-        root_y = self.root.winfo_rooty()
-        root_w = self.root.winfo_width()
-        root_h = self.root.winfo_height()
-        window_w = self.window.winfo_width()
-        window_h = self.window.winfo_height()
-        screen_w = self.window.winfo_screenwidth()
-        screen_h = self.window.winfo_screenheight()
-        x = min(screen_w - window_w, root_x + root_w + 16)
-        x = max(0, x)
-        y = max(0, min(screen_h - window_h, root_y + max(0, (root_h - window_h) // 2)))
-        self.window.geometry(f"{window_w}x{window_h}+{x}+{y}")
-        self._placed_once = True
+        return self.frame
 
     def show(self):
-        window = self.ensure_window()
-        self._place_beside_root()
-        window.deiconify()
-        window.lift()
-        window.focus_force()
+        frame = self.ensure_window()
+        frame.tkraise()
+        return frame
 
     def set_scope_options(self, options: list[str]):
         if self.scope_combo is not None:
