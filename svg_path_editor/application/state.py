@@ -18,6 +18,8 @@ class InteractionState:
     toast_after_id: str | None = None
     drag_shape_before_text: str | None = None
     drag_guide_before_value: float | None = None
+    drag_shape_origin_point: tuple[float, float] | None = None
+    drag_shape_origin_handles: list[tuple[float, float]] = field(default_factory=list)
     handle_text_spans: list[dict] = field(default_factory=list)
     text_selected_handle_indices: set[int] = field(default_factory=set)
     is_space_pressed: bool = False
