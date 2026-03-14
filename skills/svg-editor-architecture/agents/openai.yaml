@@ -1,0 +1,4 @@
+interface:
+  display_name: "SVG Editor Architecture"
+  short_description: "项目内 SVG 编辑器架构与设计模式说明"
+  default_prompt: "Use $svg-editor-architecture to explain or extend this project's Python Tkinter SVG editor while preserving its layered architecture and command-based undo/redo design."
