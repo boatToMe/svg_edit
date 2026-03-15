@@ -25,7 +25,6 @@ class PreviewWindow:
         self.color_settings: ColorSettingsGroup | None = None
         self.stroke_settings: StrokeSettingsGroup | None = None
         self.target_control: LabeledControl | None = None
-        self.apply_style_button = None
         self.reset_style_button = None
         self.scope_combo = None
 
@@ -58,8 +57,9 @@ class PreviewWindow:
 
         self.canvas_settings = PreviewCanvasSettings(self.frame, self.background_theme_var)
         self.background_theme_combo = self.canvas_settings.background_theme_combo
+        self.reset_style_button = self.canvas_settings.reset_button
 
-        style_box = ttk.LabelFrame(self.frame, text="预览样式", padding=8)
+        style_box = ttk.LabelFrame(self.frame, text="样式编辑", padding=8)
         style_box.pack(fill="x", pady=(0, 8))
 
         self.target_control = LabeledControl(style_box, "目标元素")
@@ -84,18 +84,11 @@ class PreviewWindow:
         self.linecap_combo = self.stroke_settings.linecap_combo
         self.linejoin_combo = self.stroke_settings.linejoin_combo
 
-        action_row = ttk.Frame(style_box)
-        action_row.pack(fill="x", pady=(8, 0))
-        self.apply_style_button = ttk.Button(action_row, text="应用样式")
-        self.apply_style_button.pack(side="left")
-        self.reset_style_button = ttk.Button(action_row, text="重置当前范围")
-        self.reset_style_button.pack(side="left", padx=(8, 0))
-        ttk.Label(style_box, text="点击色块直接取色；棋盘格表示透明或未设置。", justify="left").pack(anchor="w", pady=(8, 0))
-
         self.browser_preview = BrowserPreview(self.frame)
         self.browser_preview.frame.pack(fill="both", expand=True)
         self.update_color_swatch("stroke")
         self.update_color_swatch("fill")
+        self.set_document_loaded(False)
         return self.frame
 
     def show(self):
@@ -109,19 +102,35 @@ class PreviewWindow:
         if self.scope_var.get() not in options and options:
             self.scope_var.set(options[0])
 
+    def set_document_loaded(self, loaded: bool):
+        if not self.is_open():
+            return
+        self.zoom_controls.set_enabled(loaded)
+        self.canvas_settings.set_enabled(loaded)
+        self.color_settings.set_enabled(loaded)
+        self.stroke_settings.set_enabled(loaded)
+        self.scope_combo.configure(state="readonly" if loaded else "disabled")
+        if not loaded:
+            self.size_var.set("预览尺寸：未加载 SVG")
+
     def get_target_width(self) -> int:
         return int(self.width_var.get().strip())
 
     def set_target_width(self, width_px: int):
         self.width_var.set(str(max(1, int(round(width_px)))))
 
-    def update_size_label(self, width_px: int, height_px: int):
-        self.size_var.set(f"预览尺寸：{width_px} x {height_px} px")
+    def update_size_label(self, width_px: int, height_px: int, zoom_percent: int = 100):
+        self.size_var.set(f"预览尺寸：{width_px} x {height_px} px · {zoom_percent}%")
 
     def set_preview_html(self, html_text: str):
         if self.browser_preview is None:
             return
         self.browser_preview.set_html(html_text)
+
+    def get_preview_viewport_size(self) -> tuple[int, int]:
+        if self.browser_preview is None:
+            return (0, 0)
+        return self.browser_preview.get_viewport_size()
 
     def is_browser_available(self) -> bool:
         return self.browser_preview is not None and self.browser_preview.is_available()

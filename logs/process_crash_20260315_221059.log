@@ -1,0 +1,11 @@
+time: 2026-03-15T22:10:59.308144
+source: 子进程异常退出
+python: 3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:37:03) [MSC v.1929 64 bit (AMD64)]
+platform: Windows-11-10.0.26200-SP0
+return_code: 2
+
+[stdout]
+<empty>
+
+[stderr]
+C:\ProgramData\miniconda3\python.exe: can't open file 'F:\\project\\svg_edit\\.codex_crash_probe.py': [Errno 2] No such file or directory

@@ -2,23 +2,44 @@ import tkinter as tk
 from tkinter import ttk
 
 from .flow import FlowRow
+from .preview_controls import ButtonPair
 
 
-HELP_TEXT = (
-    "画布会同时显示全部可编辑元素\n"
-    "当前元素高亮，节点可拖动\n"
-    "拖动会按编辑设置里的步长吸附\n"
-    "按住空格并左键拖动可移动画布\n"
-    "节点拖动后可用 Ctrl+Z 撤销、Ctrl+Y 重做\n"
-    "选中几何数据区数字时会高亮对应端点\n"
-    "可对选中的同值数字做批量替换\n"
-    "左侧预览区会实时显示渲染效果"
-)
+class ElementManagerGroup:
+    def __init__(self, parent):
+        self.frame = ttk.LabelFrame(parent, text="元素管理", padding=8)
+        self.listbox = None
+        self._build()
+
+    def _build(self):
+        self.frame.pack(fill="x", pady=(0, 8))
+        list_frame = ttk.Frame(self.frame)
+        list_frame.pack(fill="x")
+        self.listbox = tk.Listbox(list_frame, height=6, exportselection=False)
+        self.listbox.pack(side="left", fill="x", expand=True)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.listbox.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.listbox.configure(yscrollcommand=scrollbar.set)
 
 
-class InspectorSidebar:
-    def __init__(self, parent, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
+class GuideListActions:
+    def __init__(self, parent):
         self.frame = ttk.Frame(parent)
+        self.buttons = ButtonPair(self.frame, "删除选中辅助线", "清空辅助线")
+        self.delete_button = self.buttons.first_button
+        self.clear_button = self.buttons.second_button
+        self._build()
+
+    def _build(self):
+        self.frame.pack(fill="x", pady=(8, 0))
+        self.buttons.frame.pack(anchor="w")
+
+
+class EditInspectorTab:
+    def __init__(self, parent, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
+        self.frame = ttk.Frame(parent, padding=8)
+        self.element_manager = None
+        self.element_listbox = None
         self.text = None
         self.apply_text_button = None
         self.reload_button = None
@@ -32,10 +53,12 @@ class InspectorSidebar:
         self.delete_guide_button = None
         self.clear_guides_button = None
         self.guide_listbox = None
+        self.guide_actions = None
         self._build(guide_axis_var, guide_value_var, drag_step_var)
 
     def _build(self, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
-        self.frame.pack(fill="both", expand=True)
+        self.element_manager = ElementManagerGroup(self.frame)
+        self.element_listbox = self.element_manager.listbox
 
         geometry_box = ttk.LabelFrame(self.frame, text="几何数据", padding=8)
         geometry_box.pack(fill="x")
@@ -76,16 +99,12 @@ class InspectorSidebar:
         self.add_guide_button = ttk.Button(guide_input.frame, text="添加辅助线")
         guide_input.add(self.add_guide_button)
 
-        guide_actions = FlowRow(guide_box)
-        guide_actions.pack(fill="x", pady=(8, 0))
-        self.add_focus_x_button = ttk.Button(guide_actions.frame, text="添加焦点 X")
-        self.add_focus_y_button = ttk.Button(guide_actions.frame, text="添加焦点 Y")
-        self.delete_guide_button = ttk.Button(guide_actions.frame, text="删除选中辅助线")
-        self.clear_guides_button = ttk.Button(guide_actions.frame, text="清空辅助线")
-        guide_actions.add(self.add_focus_x_button)
-        guide_actions.add(self.add_focus_y_button)
-        guide_actions.add(self.delete_guide_button)
-        guide_actions.add(self.clear_guides_button)
+        guide_focus = FlowRow(guide_box)
+        guide_focus.pack(fill="x", pady=(8, 0))
+        self.add_focus_x_button = ttk.Button(guide_focus.frame, text="添加焦点 X")
+        self.add_focus_y_button = ttk.Button(guide_focus.frame, text="添加焦点 Y")
+        guide_focus.add(self.add_focus_x_button)
+        guide_focus.add(self.add_focus_y_button)
 
         list_frame = ttk.Frame(guide_box)
         list_frame.pack(fill="x", pady=(8, 0))
@@ -95,6 +114,57 @@ class InspectorSidebar:
         guide_scrollbar.pack(side="right", fill="y")
         self.guide_listbox.configure(yscrollcommand=guide_scrollbar.set)
 
-        help_box = ttk.LabelFrame(self.frame, text="提示", padding=8)
-        help_box.pack(fill="x", pady=(8, 0))
-        ttk.Label(help_box, text=HELP_TEXT, justify="left").pack(anchor="w")
+        self.guide_actions = GuideListActions(guide_box)
+        self.delete_guide_button = self.guide_actions.delete_button
+        self.clear_guides_button = self.guide_actions.clear_button
+
+
+class CodeInspectorTab:
+    def __init__(self, parent):
+        self.frame = ttk.Frame(parent, padding=8)
+        self.text = None
+        self._build()
+
+    def _build(self):
+        code_box = ttk.LabelFrame(self.frame, text="SVG 代码", padding=8)
+        code_box.pack(fill="both", expand=True)
+        text_frame = ttk.Frame(code_box)
+        text_frame.pack(fill="both", expand=True)
+        self.text = tk.Text(text_frame, wrap="none", font=("Consolas", 10), state="disabled")
+        self.text.pack(side="left", fill="both", expand=True)
+        y_scroll = ttk.Scrollbar(text_frame, orient="vertical", command=self.text.yview)
+        y_scroll.pack(side="right", fill="y")
+        x_scroll = ttk.Scrollbar(code_box, orient="horizontal", command=self.text.xview)
+        x_scroll.pack(fill="x", pady=(8, 0))
+        self.text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+
+class InspectorSidebar:
+    def __init__(self, parent, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
+        self.frame = ttk.Frame(parent)
+        self.notebook = ttk.Notebook(self.frame)
+        self.edit_tab = EditInspectorTab(self.notebook, guide_axis_var, guide_value_var, drag_step_var)
+        self.code_tab = CodeInspectorTab(self.notebook)
+
+        self.element_listbox = self.edit_tab.element_listbox
+        self.text = self.edit_tab.text
+        self.apply_text_button = self.edit_tab.apply_text_button
+        self.reload_button = self.edit_tab.reload_button
+        self.batch_replace_button = self.edit_tab.batch_replace_button
+        self.drag_step_entry = self.edit_tab.drag_step_entry
+        self.guide_axis_combo = self.edit_tab.guide_axis_combo
+        self.guide_value_entry = self.edit_tab.guide_value_entry
+        self.add_guide_button = self.edit_tab.add_guide_button
+        self.add_focus_x_button = self.edit_tab.add_focus_x_button
+        self.add_focus_y_button = self.edit_tab.add_focus_y_button
+        self.delete_guide_button = self.edit_tab.delete_guide_button
+        self.clear_guides_button = self.edit_tab.clear_guides_button
+        self.guide_listbox = self.edit_tab.guide_listbox
+        self.code_text = self.code_tab.text
+        self._build()
+
+    def _build(self):
+        self.frame.pack(fill="both", expand=True)
+        self.notebook.pack(fill="both", expand=True)
+        self.notebook.add(self.edit_tab.frame, text="编辑")
+        self.notebook.add(self.code_tab.frame, text="代码")

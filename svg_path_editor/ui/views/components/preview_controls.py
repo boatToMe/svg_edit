@@ -27,6 +27,13 @@ class LabeledControl:
         widget.pack(in_=self.content, side="left")
         return widget
 
+    def set_enabled(self, enabled: bool):
+        if self.widget is not None:
+            try:
+                self.widget.configure(state="readonly" if enabled and isinstance(self.widget, ttk.Combobox) else ("normal" if enabled else "disabled"))
+            except tk.TclError:
+                pass
+
 
 class ButtonPair:
     def __init__(self, parent, first_text: str, second_text: str):
@@ -38,6 +45,11 @@ class ButtonPair:
     def _build(self):
         self.first_button.pack(side="left")
         self.second_button.pack(side="left", padx=(6, 0))
+
+    def set_enabled(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        self.first_button.configure(state=state)
+        self.second_button.configure(state=state)
 
 
 class CheckerboardSwatch(tk.Canvas):
@@ -71,6 +83,7 @@ class ColorField:
         self.row = ttk.Frame(self.frame)
         self.label = ttk.Label(self.row, text=label_text)
         self.swatch = CheckerboardSwatch(self.row)
+        self._enabled = True
         self._build()
 
     def _build(self):
@@ -83,6 +96,10 @@ class ColorField:
 
     def bind_pick(self, callback):
         self.swatch.bind("<Button-1>", callback)
+
+    def set_enabled(self, enabled: bool):
+        self._enabled = enabled
+        self.swatch.configure(cursor="hand2" if enabled else "arrow")
 
 
 class ZoomControls:
@@ -106,21 +123,32 @@ class ZoomControls:
         self.row.add(self.zoom_buttons.frame)
         self.row.add(self.size_label, stretch=True)
 
+    def set_enabled(self, enabled: bool):
+        self.width_entry.configure(state="normal" if enabled else "disabled")
+        self.apply_button.configure(state="normal" if enabled else "disabled")
+        self.zoom_buttons.set_enabled(enabled)
+
 
 class PreviewCanvasSettings:
     def __init__(self, parent, background_theme_var: tk.StringVar):
-        self.frame = ttk.LabelFrame(parent, text="预览画布", padding=8)
+        self.frame = ttk.LabelFrame(parent, text="预览设置", padding=8)
         self.row = FlowRow(self.frame)
-        self.background_control = LabeledControl(self.row.frame, "背景主题")
+        self.background_control = LabeledControl(self.row.frame, "画布主题")
         self.background_theme_combo = self.background_control.attach(
             ttk.Combobox(self.background_control.content, textvariable=background_theme_var, values=["亮色", "暗色"], state="readonly", width=8)
         )
+        self.reset_button = ttk.Button(self.row.frame, text="重置设置")
         self._build()
 
     def _build(self):
         self.frame.pack(fill="x", pady=(0, 8))
         self.row.pack(fill="x")
         self.row.add(self.background_control.frame)
+        self.row.add(self.reset_button)
+
+    def set_enabled(self, enabled: bool):
+        self.background_theme_combo.configure(state="readonly" if enabled else "disabled")
+        self.reset_button.configure(state="normal" if enabled else "disabled")
 
 
 class ColorSettingsGroup:
@@ -136,6 +164,10 @@ class ColorSettingsGroup:
         self.row.pack(fill="x")
         self.row.add(self.stroke_field.frame)
         self.row.add(self.fill_field.frame)
+
+    def set_enabled(self, enabled: bool):
+        self.stroke_field.set_enabled(enabled)
+        self.fill_field.set_enabled(enabled)
 
 
 class StrokeSettingsGroup:
@@ -164,3 +196,11 @@ class StrokeSettingsGroup:
         self.row.add(self.corner_radius_control.frame)
         self.row.add(self.linecap_control.frame)
         self.row.add(self.linejoin_control.frame)
+
+    def set_enabled(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        combo_state = "readonly" if enabled else "disabled"
+        self.stroke_width_entry.configure(state=state)
+        self.corner_radius_entry.configure(state=state)
+        self.linecap_combo.configure(state=combo_state)
+        self.linejoin_combo.configure(state=combo_state)

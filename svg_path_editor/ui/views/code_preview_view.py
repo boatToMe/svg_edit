@@ -10,6 +10,7 @@ class SVGCodePreviewDialog:
         self.confirm_button = None
         self.cancel_button = None
         self._confirmed = False
+        self._view_only = False
 
     def ensure_window(self):
         if self.window is not None and self.window.winfo_exists():
@@ -23,7 +24,8 @@ class SVGCodePreviewDialog:
 
         body = ttk.Frame(self.window, padding=8)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text="下面是即将保存的 SVG 代码。确认无误后再保存。", justify="left").pack(anchor="w", pady=(0, 8))
+        self.message_label = ttk.Label(body, text="下面是即将保存的 SVG 代码。确认无误后再保存。", justify="left")
+        self.message_label.pack(anchor="w", pady=(0, 8))
 
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
@@ -44,8 +46,20 @@ class SVGCodePreviewDialog:
         return self.window
 
     def ask(self, svg_code: str) -> bool:
+        self._show(svg_code, title="保存前预览 SVG 代码", message="下面是即将保存的 SVG 代码。确认无误后再保存。", confirm_text="确认保存", view_only=False)
+        return self._confirmed
+
+    def show(self, svg_code: str):
+        self._show(svg_code, title="当前 SVG 代码", message="下面是当前 SVG 代码。", confirm_text="关闭", view_only=True)
+
+    def _show(self, svg_code: str, title: str, message: str, confirm_text: str, view_only: bool):
         window = self.ensure_window()
         self._confirmed = False
+        self._view_only = view_only
+        window.title(title)
+        self.message_label.configure(text=message)
+        self.confirm_button.configure(text=confirm_text)
+        self.cancel_button.configure(text="取消" if not view_only else "关闭")
         if self.text is not None:
             self.text.configure(state="normal")
             self.text.delete("1.0", "end")
@@ -56,7 +70,6 @@ class SVGCodePreviewDialog:
         window.focus_force()
         window.grab_set()
         self.root.wait_window(window)
-        return self._confirmed
 
     def _on_confirm(self):
         self._confirmed = True

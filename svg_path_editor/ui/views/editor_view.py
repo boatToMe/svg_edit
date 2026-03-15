@@ -9,7 +9,6 @@ class EditorView:
         self.root = root
         self.root.title("SVG 可视化编辑器")
 
-        self.path_var = tk.StringVar()
         self.status_var = tk.StringVar(value="请先打开一个 SVG 文件。")
         self.guide_axis_var = tk.StringVar(value="x")
         self.guide_value_var = tk.StringVar()
@@ -21,7 +20,7 @@ class EditorView:
         self.root.geometry("1680x920")
         self.root.minsize(1480, 820)
 
-        self.toolbar = EditorToolbar(self.root, self.path_var)
+        self.toolbar = EditorToolbar(self.root)
         self.workspace = EditorWorkspace(
             self.root,
             self.guide_axis_var,
@@ -33,13 +32,15 @@ class EditorView:
         self.save_button = self.toolbar.save_button
         self.save_as_button = self.toolbar.save_as_button
         self.preview_button = self.toolbar.preview_button
-        self.path_combo = self.toolbar.path_combo
 
         self.preview_host = self.workspace.preview_pane.host
         self.canvas = self.workspace.canvas_pane.canvas
         self.inspector = self.workspace.inspector
 
+        self.element_listbox = self.inspector.element_listbox
         self.text = self.inspector.text
+        self.code_text = self.inspector.code_text
+        self.inspector_notebook = self.inspector.notebook
         self.apply_text_button = self.inspector.apply_text_button
         self.reload_button = self.inspector.reload_button
         self.batch_replace_button = self.inspector.batch_replace_button
@@ -54,16 +55,63 @@ class EditorView:
         self.guide_listbox = self.inspector.guide_listbox
 
         ttk.Label(self.root, textvariable=self.status_var, anchor="w", padding=(10, 6)).pack(fill="x")
+        self.set_document_loaded(False)
+        self.set_code_text("请先打开一个 SVG 文件。")
+
+    def set_document_loaded(self, loaded: bool):
+        button_state = "normal" if loaded else "disabled"
+        entry_state = "normal" if loaded else "disabled"
+        list_state = "normal" if loaded else "disabled"
+        combo_state = "readonly" if loaded else "disabled"
+
+        self.save_button.configure(state=button_state)
+        self.save_as_button.configure(state=button_state)
+        self.preview_button.configure(state=button_state)
+        self.element_listbox.configure(state=list_state)
+        self.text.configure(state=entry_state)
+        self.apply_text_button.configure(state=button_state)
+        self.reload_button.configure(state=button_state)
+        self.batch_replace_button.configure(state=button_state)
+        self.drag_step_entry.configure(state=entry_state)
+        self.guide_axis_combo.configure(state=combo_state)
+        self.guide_value_entry.configure(state=entry_state)
+        self.add_guide_button.configure(state=button_state)
+        self.add_focus_x_button.configure(state=button_state)
+        self.add_focus_y_button.configure(state=button_state)
+        self.delete_guide_button.configure(state=button_state)
+        self.clear_guides_button.configure(state=button_state)
+        self.guide_listbox.configure(state=list_state)
 
     def set_element_labels(self, labels: list[str]):
-        self.path_combo["values"] = labels
+        self.element_listbox.delete(0, "end")
+        for label in labels:
+            self.element_listbox.insert("end", label)
+
+    def select_element(self, index: int | None):
+        self.element_listbox.selection_clear(0, "end")
+        if index is None:
+            return
+        self.element_listbox.selection_set(index)
+        self.element_listbox.activate(index)
+        self.element_listbox.see(index)
+
+    def get_selected_element_index(self) -> int | None:
+        selection = self.element_listbox.curselection()
+        return selection[0] if selection else None
 
     def set_geometry_text(self, text: str):
+        self.text.configure(state="normal")
         self.text.delete("1.0", "end")
         self.text.insert("1.0", text)
 
     def get_geometry_text(self) -> str:
         return self.text.get("1.0", "end").strip()
+
+    def set_code_text(self, text: str):
+        self.code_text.configure(state="normal")
+        self.code_text.delete("1.0", "end")
+        self.code_text.insert("1.0", text)
+        self.code_text.configure(state="disabled")
 
     def get_drag_step(self) -> float:
         try:

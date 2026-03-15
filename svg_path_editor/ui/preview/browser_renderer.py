@@ -9,6 +9,7 @@ SVG_NS = "http://www.w3.org/2000/svg"
 SUPPORTED_TAGS = {"path", "line", "polygon"}
 FLASH_STROKE_WIDTH = "2.5"
 STYLE_OVERRIDE_KEYS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"}
+DEFAULT_PADDING = 24
 
 
 class BrowserPreviewRenderer:
@@ -29,10 +30,25 @@ class BrowserPreviewRenderer:
         min_y = min(ys)
         return (min_x, min_y, max(1.0, max(xs) - min_x), max(1.0, max(ys) - min_y))
 
-    def build_document(self, session, target_width, theme_style, global_style_override, element_style_overrides, flash_color, is_flash_on):
+    def build_document(
+        self,
+        session,
+        target_width,
+        theme_style,
+        global_style_override,
+        element_style_overrides,
+        flash_color,
+        is_flash_on,
+        viewport_width=None,
+        viewport_height=None,
+    ):
         min_x, min_y, width, height = self.get_bounds(session)
         width_px = max(1, int(target_width))
         height_px = max(1, int(round(width_px * height / max(width, 1.0))))
+        initial_scale = self._compute_initial_scale(width_px, height_px, viewport_width, viewport_height)
+        rendered_width = max(1, int(round(width_px * initial_scale)))
+        rendered_height = max(1, int(round(height_px * initial_scale)))
+        zoom_percent = max(1, int(round(initial_scale * 100)))
 
         root_copy = copy.deepcopy(session.document.root)
         elements = [elem for elem in root_copy.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
@@ -46,10 +62,20 @@ class BrowserPreviewRenderer:
         ET.register_namespace("", SVG_NS)
         svg_markup = ET.tostring(root_copy, encoding="unicode")
         title = html.escape(str(session.document.file_path) if session.document.file_path else "SVG 预览")
-        html_text = self._wrap_html(svg_markup, title, width_px, theme_style)
-        return html_text, width_px, height_px
+        html_text = self._wrap_html(svg_markup, title, width_px, height_px, initial_scale, theme_style)
+        return html_text, rendered_width, rendered_height, zoom_percent
 
-    def _wrap_html(self, svg_markup: str, title: str, width_px: int, theme_style: dict[str, str]) -> str:
+    def _compute_initial_scale(self, width_px: int, height_px: int, viewport_width, viewport_height) -> float:
+        if not viewport_width or not viewport_height:
+            return 1.0
+        usable_width = max(1, int(viewport_width) - DEFAULT_PADDING * 2)
+        usable_height = max(1, int(viewport_height) - DEFAULT_PADDING * 2)
+        return min(
+            max(usable_width / max(width_px, 1), 0.05),
+            max(usable_height / max(height_px, 1), 0.05),
+        )
+
+    def _wrap_html(self, svg_markup: str, title: str, width_px: int, height_px: int, initial_scale: float, theme_style: dict[str, str]) -> str:
         return f"""<!doctype html>
 <html lang=\"zh-CN\">
 <head>
@@ -64,41 +90,132 @@ class BrowserPreviewRenderer:
       overflow: hidden;
     }}
     body {{
-      display: grid;
-      place-items: center;
       background: {theme_style['background']};
       color: #111827;
-      font-family: "Segoe UI", sans-serif;
+      font-family: \"Segoe UI\", sans-serif;
+      user-select: none;
+      cursor: default;
     }}
-    .stage {{
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      box-sizing: border-box;
-      padding: 24px;
+    #viewport {{
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: none;
     }}
-    .frame {{
-      width: min(calc(100vw - 48px), {width_px}px);
-      max-width: 100%;
-      display: grid;
-      place-items: center;
-      box-sizing: border-box;
+    #content {{
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
+      will-change: transform;
     }}
     svg {{
       display: block;
-      width: 100%;
-      height: auto;
+      width: {width_px}px;
+      height: {height_px}px;
       overflow: visible;
       shape-rendering: geometricPrecision;
       text-rendering: geometricPrecision;
+      pointer-events: none;
     }}
   </style>
 </head>
 <body>
-  <div class=\"stage\">
-    <div class=\"frame\">{svg_markup}</div>
-  </div>
+  <div id=\"viewport\"><div id=\"content\">{svg_markup}</div></div>
+  <script>
+    (() => {{
+      const viewport = document.getElementById('viewport');
+      const content = document.getElementById('content');
+      const baseWidth = {width_px};
+      const baseHeight = {height_px};
+      const initialScale = {initial_scale:.6f};
+      let scale = initialScale;
+      let translateX = 0;
+      let translateY = 0;
+      let dragging = false;
+      let panMode = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let dragOriginX = 0;
+      let dragOriginY = 0;
+
+      function applyTransform() {{
+        content.style.transform = `translate(${{translateX}}px, ${{translateY}}px) scale(${{scale}})`;
+      }}
+
+      function centerContent() {{
+        const viewWidth = viewport.clientWidth;
+        const viewHeight = viewport.clientHeight;
+        translateX = Math.round((viewWidth - baseWidth * scale) / 2);
+        translateY = Math.round((viewHeight - baseHeight * scale) / 2);
+        applyTransform();
+      }}
+
+      function zoomAt(clientX, clientY, factor) {{
+        const rect = viewport.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        const nextScale = Math.min(32, Math.max(0.05, scale * factor));
+        const ratio = nextScale / scale;
+        translateX = x - (x - translateX) * ratio;
+        translateY = y - (y - translateY) * ratio;
+        scale = nextScale;
+        applyTransform();
+      }}
+
+      window.addEventListener('keydown', event => {{
+        if (event.code === 'Space') {{
+          panMode = true;
+          document.body.style.cursor = 'grab';
+          event.preventDefault();
+        }}
+      }});
+
+      window.addEventListener('keyup', event => {{
+        if (event.code === 'Space') {{
+          panMode = false;
+          if (!dragging) {{
+            document.body.style.cursor = 'default';
+          }}
+          event.preventDefault();
+        }}
+      }});
+
+      viewport.addEventListener('mousedown', event => {{
+        if (event.button !== 0 || !panMode) return;
+        dragging = true;
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        dragOriginX = translateX;
+        dragOriginY = translateY;
+        document.body.style.cursor = 'grabbing';
+        event.preventDefault();
+      }});
+
+      window.addEventListener('mousemove', event => {{
+        if (!dragging) return;
+        translateX = dragOriginX + (event.clientX - dragStartX);
+        translateY = dragOriginY + (event.clientY - dragStartY);
+        applyTransform();
+      }});
+
+      window.addEventListener('mouseup', () => {{
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = panMode ? 'grab' : 'default';
+      }});
+
+      viewport.addEventListener('wheel', event => {{
+        const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
+        zoomAt(event.clientX, event.clientY, factor);
+        event.preventDefault();
+      }}, {{ passive: false }});
+
+      window.addEventListener('resize', centerContent);
+      centerContent();
+    }})();
+  </script>
 </body>
 </html>
 """

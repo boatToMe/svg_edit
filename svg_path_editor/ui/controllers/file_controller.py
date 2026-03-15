@@ -15,6 +15,8 @@ class FileController(BaseController):
             messagebox.showerror("打开失败", str(exc))
             return
 
+        self.view.set_document_loaded(True)
+        self.app.preview_view.set_document_loaded(True)
         self.view.set_element_labels(labels)
         self.state.custom_guides.clear()
         self.state.selected_guide_index = None
@@ -26,7 +28,7 @@ class FileController(BaseController):
         self.app.preview_controller.refresh_target_options()
 
         if labels:
-            self.view.path_combo.current(0)
+            self.view.select_element(0)
             self.load_path(0, show_toast=False)
             if self.session.document.view_box is not None:
                 min_x, min_y, width, height = self.session.document.view_box
@@ -37,9 +39,9 @@ class FileController(BaseController):
             self.session.current_index = None
             self.session.current_shape = None
             self.state.focus_handle = None
-            self.view.path_var.set("")
             self.view.set_geometry_text("")
             self.view.canvas.delete("all")
+            self.view.select_element(None)
             self.view.set_status("SVG 已加载，但没有找到支持编辑的元素。")
 
     def _preview_svg_before_save(self) -> bool:
@@ -74,9 +76,10 @@ class FileController(BaseController):
         except Exception as exc:
             messagebox.showerror("保存失败", str(exc))
 
-    def on_path_selected(self, _event=None):
-        if self.view.path_combo.get():
-            self.load_path(self.view.path_combo.current(), show_toast=True)
+    def on_element_selected(self, _event=None):
+        index = self.view.get_selected_element_index()
+        if index is not None:
+            self.load_path(index, show_toast=True)
 
     def reload_selected_path(self):
         if self.session.current_index is not None:
@@ -88,6 +91,7 @@ class FileController(BaseController):
         except Exception as exc:
             messagebox.showerror("不支持的元素", str(exc))
             return
+        self.view.select_element(index)
         self.state.focus_handle = self.session.handles[0] if self.session.handles else None
         self.state.text_selected_handle_indices = {0} if self.session.handles else set()
         self.app.text_controller.set_geometry_text(shape.raw_text)
