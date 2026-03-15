@@ -31,12 +31,10 @@ class PreviewController(BaseController):
             self.preview.zoom_out_button.configure(command=lambda: self.zoom_preview(1 / 1.1))
             self.preview.apply_style_button.configure(command=self.apply_style_settings)
             self.preview.reset_style_button.configure(command=self.reset_style_settings)
-            self.preview.pick_stroke_button.configure(command=lambda: self.pick_color(self.preview.stroke_color_var))
-            self.preview.pick_fill_button.configure(command=lambda: self.pick_color(self.preview.fill_color_var))
+            self.preview.stroke_color_field.bind_pick(lambda _event: self.pick_color("stroke"))
+            self.preview.fill_color_field.bind_pick(lambda _event: self.pick_color("fill"))
             self.preview.width_entry.bind("<Return>", lambda _event: self.apply_preview_size())
             self.preview.stroke_width_entry.bind("<Return>", lambda _event: self.apply_style_settings())
-            self.preview.stroke_color_entry.bind("<Return>", lambda _event: self.apply_style_settings())
-            self.preview.fill_color_entry.bind("<Return>", lambda _event: self.apply_style_settings())
             self.preview.corner_radius_entry.bind("<Return>", lambda _event: self.apply_style_settings())
             self.preview.scope_combo.bind("<<ComboboxSelected>>", self.on_target_selected)
             self.preview.background_theme_combo.bind("<<ComboboxSelected>>", self.on_background_theme_changed)
@@ -158,12 +156,16 @@ class PreviewController(BaseController):
         self.preview.corner_radius_var.set(override.get("_corner_radius", "0"))
         self.preview.linecap_var.set(override.get("stroke-linecap", INHERIT) or INHERIT)
         self.preview.linejoin_var.set(override.get("stroke-linejoin", INHERIT) or INHERIT)
+        self.preview.update_color_swatch("stroke")
+        self.preview.update_color_swatch("fill")
 
-    def pick_color(self, target_var):
+    def pick_color(self, kind: str):
+        target_var = self.preview.stroke_color_var if kind == "stroke" else self.preview.fill_color_var
         color = colorchooser.askcolor(color=target_var.get() or "#111827", title="选择颜色", parent=self.root)
         if not color or not color[1]:
             return
         target_var.set(color[1])
+        self.preview.update_color_swatch(kind)
 
     def _collect_style_override_from_form(self):
         override: dict[str, str] = {}

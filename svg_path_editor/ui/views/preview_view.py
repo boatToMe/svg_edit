@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from .components import BrowserPreview, FlowRow
+from .components import BrowserPreview, ColorSettingsGroup, LabeledControl, PreviewCanvasSettings, StrokeSettingsGroup, ZoomControls
 
 
 class PreviewWindow:
@@ -20,22 +20,26 @@ class PreviewWindow:
         self.linecap_var = tk.StringVar(value="继承")
         self.linejoin_var = tk.StringVar(value="继承")
         self.browser_preview: BrowserPreview | None = None
+        self.zoom_controls: ZoomControls | None = None
+        self.canvas_settings: PreviewCanvasSettings | None = None
+        self.color_settings: ColorSettingsGroup | None = None
+        self.stroke_settings: StrokeSettingsGroup | None = None
+        self.target_control: LabeledControl | None = None
+        self.apply_style_button = None
+        self.reset_style_button = None
+        self.scope_combo = None
+
+        self.apply_button = None
         self.zoom_in_button = None
         self.zoom_out_button = None
-        self.apply_button = None
         self.width_entry = None
-        self.scope_combo = None
         self.background_theme_combo = None
         self.stroke_width_entry = None
-        self.stroke_color_entry = None
-        self.fill_color_entry = None
         self.corner_radius_entry = None
         self.linecap_combo = None
         self.linejoin_combo = None
-        self.apply_style_button = None
-        self.reset_style_button = None
-        self.pick_stroke_button = None
-        self.pick_fill_button = None
+        self.stroke_color_field = None
+        self.fill_color_field = None
 
     def is_open(self) -> bool:
         return self.frame is not None and self.frame.winfo_exists()
@@ -46,75 +50,52 @@ class PreviewWindow:
         self.frame = ttk.Frame(self.parent)
         self.frame.pack(fill="both", expand=True)
 
-        top = FlowRow(self.frame)
-        top.pack(fill="x", pady=(0, 8))
-        top.add(ttk.Label(top.frame, text="目标宽度(px)："))
-        self.width_entry = ttk.Entry(top.frame, textvariable=self.width_var, width=10)
-        top.add(self.width_entry)
-        self.apply_button = ttk.Button(top.frame, text="应用尺寸")
-        top.add(self.apply_button)
-        self.zoom_out_button = ttk.Button(top.frame, text="缩小 10%")
-        top.add(self.zoom_out_button)
-        self.zoom_in_button = ttk.Button(top.frame, text="放大 10%")
-        top.add(self.zoom_in_button)
-        top.add(ttk.Label(top.frame, textvariable=self.size_var), stretch=True)
+        self.zoom_controls = ZoomControls(self.frame, self.width_var, self.size_var)
+        self.apply_button = self.zoom_controls.apply_button
+        self.zoom_in_button = self.zoom_controls.zoom_in_button
+        self.zoom_out_button = self.zoom_controls.zoom_out_button
+        self.width_entry = self.zoom_controls.width_entry
 
-        canvas_box = ttk.LabelFrame(self.frame, text="预览画布", padding=8)
-        canvas_box.pack(fill="x", pady=(0, 8))
-        canvas_row = FlowRow(canvas_box)
-        canvas_row.pack(fill="x")
-        canvas_row.add(ttk.Label(canvas_row.frame, text="背景主题"))
-        self.background_theme_combo = ttk.Combobox(canvas_row.frame, textvariable=self.background_theme_var, values=["亮色", "暗色"], state="readonly", width=8)
-        canvas_row.add(self.background_theme_combo)
+        self.canvas_settings = PreviewCanvasSettings(self.frame, self.background_theme_var)
+        self.background_theme_combo = self.canvas_settings.background_theme_combo
 
         style_box = ttk.LabelFrame(self.frame, text="预览样式", padding=8)
         style_box.pack(fill="x", pady=(0, 8))
 
-        row1 = FlowRow(style_box)
-        row1.pack(fill="x")
-        row1.add(ttk.Label(row1.frame, text="目标元素"))
-        self.scope_combo = ttk.Combobox(row1.frame, textvariable=self.scope_var, values=["整体图形"], state="readonly", width=16)
-        row1.add(self.scope_combo)
-        row1.add(ttk.Label(row1.frame, text="线条宽度"))
-        self.stroke_width_entry = ttk.Entry(row1.frame, textvariable=self.stroke_width_var, width=10)
-        row1.add(self.stroke_width_entry)
-        row1.add(ttk.Label(row1.frame, text="px"))
+        self.target_control = LabeledControl(style_box, "目标元素")
+        self.target_control.frame.pack(anchor="w")
+        self.scope_combo = self.target_control.attach(
+            ttk.Combobox(self.target_control.content, textvariable=self.scope_var, values=["整体图形"], state="readonly", width=18)
+        )
 
-        row2 = FlowRow(style_box)
-        row2.pack(fill="x", pady=(8, 0))
-        row2.add(ttk.Label(row2.frame, text="线条颜色"))
-        self.stroke_color_entry = ttk.Entry(row2.frame, textvariable=self.stroke_color_var, width=12)
-        row2.add(self.stroke_color_entry)
-        self.pick_stroke_button = ttk.Button(row2.frame, text="选择")
-        row2.add(self.pick_stroke_button)
-        row2.add(ttk.Label(row2.frame, text="填充颜色"))
-        self.fill_color_entry = ttk.Entry(row2.frame, textvariable=self.fill_color_var, width=12)
-        row2.add(self.fill_color_entry)
-        self.pick_fill_button = ttk.Button(row2.frame, text="选择")
-        row2.add(self.pick_fill_button)
+        self.color_settings = ColorSettingsGroup(style_box)
+        self.stroke_color_field = self.color_settings.stroke_field
+        self.fill_color_field = self.color_settings.fill_field
 
-        row3 = FlowRow(style_box)
-        row3.pack(fill="x", pady=(8, 0))
-        row3.add(ttk.Label(row3.frame, text="圆角"))
-        self.corner_radius_entry = ttk.Entry(row3.frame, textvariable=self.corner_radius_var, width=10)
-        row3.add(self.corner_radius_entry)
-        row3.add(ttk.Label(row3.frame, text="边界处理"))
-        self.linecap_combo = ttk.Combobox(row3.frame, textvariable=self.linecap_var, values=["继承", "butt", "round", "square"], state="readonly", width=10)
-        row3.add(self.linecap_combo)
-        row3.add(ttk.Label(row3.frame, text="拐弯处理"))
-        self.linejoin_combo = ttk.Combobox(row3.frame, textvariable=self.linejoin_var, values=["继承", "miter", "round", "bevel"], state="readonly", width=10)
-        row3.add(self.linejoin_combo)
+        self.stroke_settings = StrokeSettingsGroup(
+            style_box,
+            self.stroke_width_var,
+            self.corner_radius_var,
+            self.linecap_var,
+            self.linejoin_var,
+        )
+        self.stroke_width_entry = self.stroke_settings.stroke_width_entry
+        self.corner_radius_entry = self.stroke_settings.corner_radius_entry
+        self.linecap_combo = self.stroke_settings.linecap_combo
+        self.linejoin_combo = self.stroke_settings.linejoin_combo
 
-        row4 = FlowRow(style_box)
-        row4.pack(fill="x", pady=(8, 0))
-        self.apply_style_button = ttk.Button(row4.frame, text="应用样式")
-        row4.add(self.apply_style_button)
-        self.reset_style_button = ttk.Button(row4.frame, text="重置当前范围")
-        row4.add(self.reset_style_button)
-        ttk.Label(style_box, text="颜色留空表示继承原始样式；圆角为预览近似效果，不会改原 SVG。", justify="left").pack(anchor="w", pady=(8, 0))
+        action_row = ttk.Frame(style_box)
+        action_row.pack(fill="x", pady=(8, 0))
+        self.apply_style_button = ttk.Button(action_row, text="应用样式")
+        self.apply_style_button.pack(side="left")
+        self.reset_style_button = ttk.Button(action_row, text="重置当前范围")
+        self.reset_style_button.pack(side="left", padx=(8, 0))
+        ttk.Label(style_box, text="点击色块直接取色；棋盘格表示透明或未设置。", justify="left").pack(anchor="w", pady=(8, 0))
 
         self.browser_preview = BrowserPreview(self.frame)
         self.browser_preview.frame.pack(fill="both", expand=True)
+        self.update_color_swatch("stroke")
+        self.update_color_swatch("fill")
         return self.frame
 
     def show(self):
@@ -144,3 +125,14 @@ class PreviewWindow:
 
     def is_browser_available(self) -> bool:
         return self.browser_preview is not None and self.browser_preview.is_available()
+
+    def update_color_swatch(self, kind: str):
+        if kind == "stroke":
+            value = self.stroke_color_var.get().strip()
+            field = self.stroke_color_field
+        else:
+            value = self.fill_color_var.get().strip()
+            field = self.fill_color_field
+        if field is None:
+            return
+        field.set_color(value)
