@@ -11,7 +11,7 @@ class EditorToolbar:
         self.open_button = ttk.Button(self.row.frame, text="打开 SVG")
         self.save_button = ttk.Button(self.row.frame, text="保存")
         self.save_as_button = ttk.Button(self.row.frame, text="另存为")
-        self.preview_button = ttk.Button(self.row.frame, text="显示预览")
+        self.preview_button = ttk.Button(self.row.frame, text="刷新预览")
         self.element_label = ttk.Label(self.row.frame, text="元素：")
         self.path_combo = ttk.Combobox(self.row.frame, textvariable=path_var, state="readonly", width=42, values=[])
         self._build()

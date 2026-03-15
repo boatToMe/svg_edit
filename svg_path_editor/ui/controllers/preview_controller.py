@@ -1,7 +1,7 @@
 from tkinter import colorchooser, messagebox
 
 from ...core import strip_ns
-from ..preview import HEX_COLOR_RE, INHERIT, PreviewRenderer, SCOPE_ALL, get_theme_style
+from ..preview import BrowserPreviewRenderer, HEX_COLOR_RE, INHERIT, SCOPE_ALL, get_theme_style
 from .base import BaseController
 
 
@@ -21,7 +21,7 @@ class PreviewController(BaseController):
         self.flash_target_index: int | None = None
         self.flash_step_remaining = 0
         self.flash_after_id = None
-        self.renderer = PreviewRenderer(strip_ns)
+        self.renderer = BrowserPreviewRenderer()
 
     def open_preview(self):
         self.preview.show()
@@ -40,8 +40,6 @@ class PreviewController(BaseController):
             self.preview.corner_radius_entry.bind("<Return>", lambda _event: self.apply_style_settings())
             self.preview.scope_combo.bind("<<ComboboxSelected>>", self.on_target_selected)
             self.preview.background_theme_combo.bind("<<ComboboxSelected>>", self.on_background_theme_changed)
-            self.preview.canvas.bind("<MouseWheel>", self.on_mousewheel)
-            self.preview.canvas.bind("<Configure>", self.on_canvas_configure)
             self._bindings_ready = True
         self.refresh_target_options(reload_fields=True)
         self._ensure_default_width()
@@ -82,9 +80,6 @@ class PreviewController(BaseController):
             self.redraw_preview()
 
     def on_background_theme_changed(self, _event=None):
-        self.redraw_preview()
-
-    def on_canvas_configure(self, _event=None):
         self.redraw_preview()
 
     def start_target_flash(self, target_index: int):
@@ -228,10 +223,6 @@ class PreviewController(BaseController):
         self.preview.set_target_width(width_px)
         self.redraw_preview()
 
-    def on_mousewheel(self, event):
-        self.zoom_preview(1.1 if event.delta > 0 else 1 / 1.1)
-        return "break"
-
     def _ensure_default_width(self):
         try:
             width_px = self.preview.get_target_width()
@@ -243,7 +234,7 @@ class PreviewController(BaseController):
         self.preview.set_target_width(max(64, int(round(width))))
 
     def redraw_preview(self):
-        if not self.preview.is_open() or self.preview.canvas is None:
+        if not self.preview.is_open() or self.session.document.root is None:
             return
         try:
             width_px = max(1, self.preview.get_target_width())
@@ -251,13 +242,14 @@ class PreviewController(BaseController):
             width_px = 512
             self.preview.set_target_width(width_px)
         theme_style = get_theme_style(self.preview.background_theme_var.get())
-        self.renderer.redraw(
-            preview=self.preview,
+        html_text, final_width, final_height = self.renderer.build_document(
             session=self.session,
-            theme_style=theme_style,
             target_width=width_px,
+            theme_style=theme_style,
             global_style_override=self.global_style_override,
             element_style_overrides=self.element_style_overrides,
             flash_color=FLASH_COLOR,
             is_flash_on=self._is_flash_on,
         )
+        self.preview.update_size_label(final_width, final_height)
+        self.preview.set_preview_html(html_text)

@@ -3,6 +3,10 @@ from ..constants import ALL_SHAPES_COLOR, SELECTED_SHAPE_COLOR
 from .styles import corner_radius, merge_style_overrides, normalize_color, parse_style_rules, resolve_style, stroke_width
 
 
+LOW_RES_PREVIEW_WIDTH = 64
+LOW_RES_SCALE_THRESHOLD = 1.5
+
+
 class PreviewRenderer:
     def __init__(self, strip_ns):
         self.strip_ns = strip_ns
@@ -31,6 +35,7 @@ class PreviewRenderer:
         width_px = max(1, int(target_width))
         height_px = max(1, int(round(width_px * height / max(width, 1.0))))
         scale = width_px / max(width, 1.0)
+        low_res_mode = width_px <= LOW_RES_PREVIEW_WIDTH or scale <= LOW_RES_SCALE_THRESHOLD
         preview.resize_canvas(width_px, height_px)
         preview.update_size_label(width_px, height_px)
 
@@ -68,6 +73,7 @@ class PreviewRenderer:
                 selected=index == session.current_index,
                 flash=is_flash_on(index),
                 flash_color=flash_color,
+                low_res_mode=low_res_mode,
             )
 
     def _shape_subpaths(self, shape):
@@ -96,13 +102,21 @@ class PreviewRenderer:
             subpaths.append((current, False))
         return subpaths
 
-    def _to_canvas_points(self, points, min_x, min_y, scale, offset_x, offset_y):
+    def _pixel_snap(self, value: float, for_stroke: bool) -> float:
+        return round(value) + 0.5 if for_stroke else round(value)
+
+    def _to_canvas_points(self, points, min_x, min_y, scale, offset_x, offset_y, low_res_mode: bool, for_stroke: bool):
         flat = []
         for x, y in points:
-            flat.extend((((x - min_x) * scale) + offset_x, ((y - min_y) * scale) + offset_y))
+            canvas_x = ((x - min_x) * scale) + offset_x
+            canvas_y = ((y - min_y) * scale) + offset_y
+            if low_res_mode:
+                canvas_x = self._pixel_snap(canvas_x, for_stroke)
+                canvas_y = self._pixel_snap(canvas_y, for_stroke)
+            flat.extend((canvas_x, canvas_y))
         return flat
 
-    def _draw_shape(self, canvas, shape, style, min_x, min_y, scale, offset_x, offset_y, selected: bool, flash: bool, flash_color: str):
+    def _draw_shape(self, canvas, shape, style, min_x, min_y, scale, offset_x, offset_y, selected: bool, flash: bool, flash_color: str, low_res_mode: bool):
         fallback_fill = "#111827" if shape.shape_type in {"path", "polygon"} else ""
         fallback_stroke = "#111827" if shape.shape_type == "line" else ""
         fill = normalize_color(style.get("fill"), fallback_fill)
@@ -117,14 +131,19 @@ class PreviewRenderer:
             stroke = SELECTED_SHAPE_COLOR
         elif not selected and not stroke and not fill:
             stroke = ALL_SHAPES_COLOR
+
+        if low_res_mode:
+            scaled_stroke_width = max(1.0, round(scaled_stroke_width))
+            scaled_corner_radius = 0.0
+
         smooth = scaled_corner_radius > 0
         smooth_steps = max(8, int(scaled_corner_radius)) if smooth else 12
 
         for points, closed in self._shape_subpaths(shape):
             if len(points) < 2:
                 continue
-            flat = self._to_canvas_points(points, min_x, min_y, scale, offset_x, offset_y)
             if closed:
+                flat = self._to_canvas_points(points, min_x, min_y, scale, offset_x, offset_y, low_res_mode, False)
                 canvas.create_polygon(
                     *flat,
                     fill=fill or "",
@@ -135,6 +154,7 @@ class PreviewRenderer:
                     splinesteps=smooth_steps,
                 )
             else:
+                flat = self._to_canvas_points(points, min_x, min_y, scale, offset_x, offset_y, low_res_mode, True)
                 line_color = stroke or fill or "#111827"
                 canvas.create_line(
                     *flat,

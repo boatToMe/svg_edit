@@ -1,0 +1,15 @@
+tkwebview-0.3.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+tkwebview-0.3.0.dist-info/METADATA,sha256=f4J-q_-iRdw6d-jVcX8PiPd8cUJFhlefkeBaLu5KFI8,5232
+tkwebview-0.3.0.dist-info/RECORD,,
+tkwebview-0.3.0.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+tkwebview-0.3.0.dist-info/WHEEL,sha256=_zCd3N1l69ArxyTb8rzEoP9TpbYXkqRFSNOD5OuxnTs,91
+tkwebview-0.3.0.dist-info/licenses/LICENSE,sha256=r3DnW6hyoSTrMFqhw1KoiUgCNHYPn9zTTZKMdMoYXbA,1088
+tkwebview-0.3.0.dist-info/top_level.txt,sha256=usvys2Q_LgHpzpOTlcz_vjRMwiE4M3vekZF4gTA3iSE,10
+tkwebview/__init__.py,sha256=lEPbizkI3hZPbnxiGfJbvH0ZsGneONQ8Jv9yYVAU9dg,2438
+tkwebview/__pycache__/__init__.cpython-313.pyc,,
+tkwebview/__pycache__/core.cpython-313.pyc,,
+tkwebview/__pycache__/test.cpython-313.pyc,,
+tkwebview/core.py,sha256=_ZBcPFYW6iJNbDxH9HQ-0SAKI7JuJaN3rExyLxAVlPY,11955
+tkwebview/platform/win32/x64/webview.dll,sha256=iVpsf2zcMWSE2MXvBs-qkeoQNGjrALohi1eZFr_4Mls,130048
+tkwebview/platform/win32/x86/webview.dll,sha256=A5NHTJ4oCL70Lb7Ggmz_PSJcE0TULGtX0bBjW5T3_q8,109568
+tkwebview/test.py,sha256=G8Dek9YcL0J3es-JhKFrJztk6E9aK_6M6s1Vb3ygUN8,2579

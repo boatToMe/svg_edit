@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from .components.flow import FlowRow
+from .components import BrowserPreview, FlowRow
 
 
 class PreviewWindow:
@@ -19,7 +19,7 @@ class PreviewWindow:
         self.corner_radius_var = tk.StringVar(value="0")
         self.linecap_var = tk.StringVar(value="继承")
         self.linejoin_var = tk.StringVar(value="继承")
-        self.canvas: tk.Canvas | None = None
+        self.browser_preview: BrowserPreview | None = None
         self.zoom_in_button = None
         self.zoom_out_button = None
         self.apply_button = None
@@ -113,8 +113,8 @@ class PreviewWindow:
         row4.add(self.reset_style_button)
         ttk.Label(style_box, text="颜色留空表示继承原始样式；圆角为预览近似效果，不会改原 SVG。", justify="left").pack(anchor="w", pady=(8, 0))
 
-        self.canvas = tk.Canvas(self.frame, background="#ffffff", highlightthickness=1, highlightbackground="#cbd5e1")
-        self.canvas.pack(fill="both", expand=True)
+        self.browser_preview = BrowserPreview(self.frame)
+        self.browser_preview.frame.pack(fill="both", expand=True)
         return self.frame
 
     def show(self):
@@ -137,7 +137,10 @@ class PreviewWindow:
     def update_size_label(self, width_px: int, height_px: int):
         self.size_var.set(f"预览尺寸：{width_px} x {height_px} px")
 
-    def resize_canvas(self, width_px: int, height_px: int):
-        if self.canvas is None:
+    def set_preview_html(self, html_text: str):
+        if self.browser_preview is None:
             return
-        self.canvas.configure(width=width_px, height=height_px, scrollregion=(0, 0, width_px, height_px))
+        self.browser_preview.set_html(html_text)
+
+    def is_browser_available(self) -> bool:
+        return self.browser_preview is not None and self.browser_preview.is_available()
