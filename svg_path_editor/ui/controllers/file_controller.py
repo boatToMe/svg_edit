@@ -15,6 +15,7 @@ class FileController(BaseController):
             messagebox.showerror("打开失败", str(exc))
             return
 
+        self.app.preview_controller.reset_zoom_state()
         self.view.set_document_loaded(True)
         self.app.preview_view.set_document_loaded(True)
         self.view.set_element_labels(labels)
@@ -26,6 +27,7 @@ class FileController(BaseController):
         self.state.text_selected_handle_indices = set()
         self.app.guide_controller.refresh_guide_listbox()
         self.app.preview_controller.refresh_target_options()
+        self.app.code_controller.refresh_code_view()
 
         if labels:
             self.view.select_element(0)
@@ -55,6 +57,7 @@ class FileController(BaseController):
                 self.view.set_status("已取消保存。")
                 return
             self.session.save()
+            self.app.code_controller.refresh_if_visible()
             self.view.set_status(f"已保存到 {self.session.document.file_path}")
         except Exception as exc:
             messagebox.showerror("保存失败", str(exc))
@@ -72,6 +75,7 @@ class FileController(BaseController):
                 self.view.set_status("已取消另存为。")
                 return
             self.session.save(Path(file_name))
+            self.app.code_controller.refresh_if_visible()
             self.view.set_status(f"已保存到 {file_name}")
         except Exception as exc:
             messagebox.showerror("保存失败", str(exc))

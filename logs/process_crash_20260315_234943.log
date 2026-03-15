@@ -1,0 +1,18 @@
+time: 2026-03-15T23:49:43.145001
+source: 子进程异常退出
+python: 3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:37:03) [MSC v.1929 64 bit (AMD64)]
+platform: Windows-11-10.0.26200-SP0
+return_code: 3221226505
+
+[stdout]
+<empty>
+
+[stderr]
+Fatal Python error: PyEval_RestoreThread: the function must be called with the GIL held, after Python initialization and before Python finalization, but the GIL is released (the current Python thread state is NULL)
+Python runtime state: initialized
+
+Current thread 0x0002b6c8 (most recent call first):
+  File "C:\ProgramData\miniconda3\Lib\tkinter\__init__.py", line 1599 in mainloop
+  File "F:\project\svg_edit\app.py", line 22 in run_application
+  File "F:\project\svg_edit\app.py", line 31 in main
+  File "F:\project\svg_edit\app.py", line 35 in <module>

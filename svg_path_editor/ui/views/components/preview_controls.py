@@ -102,31 +102,40 @@ class ColorField:
         self.swatch.configure(cursor="hand2" if enabled else "arrow")
 
 
-class ZoomControls:
-    def __init__(self, parent, width_var: tk.StringVar, size_var: tk.StringVar):
+class PreviewSizePanel:
+    def __init__(self, parent, width_var: tk.StringVar):
         self.frame = ttk.LabelFrame(parent, text="预览缩放", padding=8)
-        self.row = FlowRow(self.frame)
-        self.width_control = LabeledControl(self.row.frame, "目标宽度(px)：")
+        self.controls_row = FlowRow(self.frame)
+        self.info_row = ttk.Frame(self.frame)
+        self.summary_var = tk.StringVar(value="当前缩放：100% · 预览尺寸：512 x 512 px")
+        self.width_control = LabeledControl(self.controls_row.frame, "目标宽度(px)：")
         self.width_entry = self.width_control.attach(ttk.Entry(self.width_control.content, textvariable=width_var, width=10))
-        self.apply_button = ttk.Button(self.row.frame, text="应用尺寸")
-        self.zoom_buttons = ButtonPair(self.row.frame, "缩小 10%", "放大 10%")
+        self.apply_button = ttk.Button(self.controls_row.frame, text="应用尺寸")
+        self.zoom_buttons = ButtonPair(self.controls_row.frame, "缩小 10%", "放大 10%")
         self.zoom_out_button = self.zoom_buttons.first_button
         self.zoom_in_button = self.zoom_buttons.second_button
-        self.size_label = ttk.Label(self.row.frame, textvariable=size_var)
+        self.summary_label = ttk.Label(self.info_row, textvariable=self.summary_var, anchor="w")
         self._build()
 
     def _build(self):
         self.frame.pack(fill="x", pady=(0, 8))
-        self.row.pack(fill="x")
-        self.row.add(self.width_control.frame)
-        self.row.add(self.apply_button)
-        self.row.add(self.zoom_buttons.frame)
-        self.row.add(self.size_label, stretch=True)
+        self.controls_row.pack(fill="x")
+        self.controls_row.add(self.width_control.frame)
+        self.controls_row.add(self.apply_button)
+        self.controls_row.add(self.zoom_buttons.frame)
+        self.info_row.pack(fill="x", pady=(8, 0))
+        self.summary_label.pack(fill="x")
 
     def set_enabled(self, enabled: bool):
         self.width_entry.configure(state="normal" if enabled else "disabled")
         self.apply_button.configure(state="normal" if enabled else "disabled")
         self.zoom_buttons.set_enabled(enabled)
+
+    def update_metrics(self, width_px: int, height_px: int, zoom_percent: int = 100):
+        self.summary_var.set(f"当前缩放：{zoom_percent}% · 预览尺寸：{width_px} x {height_px} px")
+
+    def set_unloaded(self):
+        self.summary_var.set("当前缩放：未加载 SVG")
 
 
 class PreviewCanvasSettings:

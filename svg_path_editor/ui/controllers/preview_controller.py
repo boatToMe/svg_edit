@@ -1,7 +1,7 @@
 from tkinter import colorchooser, messagebox
 
 from ...core import strip_ns
-from ..preview import BrowserPreviewRenderer, HEX_COLOR_RE, INHERIT, SCOPE_ALL, get_theme_style
+from ..preview import BrowserPreviewRenderer, HEX_COLOR_RE, INHERIT, PreviewZoomProxy, SCOPE_ALL, get_theme_style
 from .base import BaseController
 
 
@@ -34,6 +34,7 @@ class PreviewController(BaseController):
         self.preview = app.preview_view
         self._bindings_ready = False
         self._suppress_live_update = False
+        self._metrics_after_id = None
         self.global_style_override: dict[str, str] = {}
         self.element_style_overrides: dict[int, dict[str, str]] = {}
         self.target_label_to_index: dict[str, int | None] = {SCOPE_ALL: None}
@@ -41,6 +42,7 @@ class PreviewController(BaseController):
         self.flash_step_remaining = 0
         self.flash_after_id = None
         self.renderer = BrowserPreviewRenderer()
+        self.zoom_proxy = PreviewZoomProxy(self.preview, self.renderer)
 
     def open_preview(self):
         self.preview.show()
@@ -49,6 +51,7 @@ class PreviewController(BaseController):
             self.preview.zoom_in_button.configure(command=lambda: self.zoom_preview(1.1))
             self.preview.zoom_out_button.configure(command=lambda: self.zoom_preview(1 / 1.1))
             self.preview.reset_style_button.configure(command=self.reset_style_settings)
+            self.preview.bind_preview_mousewheel(self.on_preview_mousewheel)
             self.preview.stroke_color_field.bind_pick(lambda _event: self.pick_color("stroke"))
             self.preview.fill_color_field.bind_pick(lambda _event: self.pick_color("fill"))
             self.preview.width_entry.bind("<Return>", lambda _event: self.apply_preview_size())
@@ -62,8 +65,49 @@ class PreviewController(BaseController):
         has_document = self.session.document.root is not None
         self.preview.set_document_loaded(has_document)
         self.refresh_target_options(reload_fields=True)
-        self._ensure_default_width()
+        self.zoom_proxy.ensure_default_target_width(self.session)
         self.redraw_preview()
+
+    def _schedule_metrics_refresh(self):
+        if self.preview.frame is None:
+            return
+        if self._metrics_after_id is not None:
+            self.preview.frame.after_cancel(self._metrics_after_id)
+        self._metrics_after_id = self.preview.frame.after(500, self._refresh_metrics_after_delay)
+
+    def _refresh_metrics_after_delay(self):
+        self._metrics_after_id = None
+        self._update_preview_metrics()
+
+    def _update_preview_metrics(self):
+        if self.session.document.root is None:
+            return
+        width_px, zoom_multiplier = self.zoom_proxy.get_render_args(self.session)
+        _min_x, _min_y, width, height = self.renderer.get_bounds(self.session)
+        base_height = max(1, int(round(width_px * height / max(width, 1.0))))
+        rendered_width = max(1, int(round(width_px * zoom_multiplier)))
+        rendered_height = max(1, int(round(base_height * zoom_multiplier)))
+        zoom_percent = max(1, int(round(zoom_multiplier * 100)))
+        self.preview.update_size_label(rendered_width, rendered_height, zoom_percent)
+
+    def reset_zoom_state(self):
+        self.zoom_proxy.reset()
+
+    def get_preview_svg_code(self) -> str:
+        if self.session.document.root is None:
+            return ""
+        return self.renderer.build_svg_code(
+            session=self.session,
+            global_style_override=self.global_style_override,
+            element_style_overrides=self.element_style_overrides,
+            flash_color=FLASH_COLOR,
+            is_flash_on=lambda _index: False,
+        )
+
+    def show_saved_svg_code(self):
+        if self.session.document.root is None:
+            return
+        self.app.code_preview_view.show(self.session.document.to_svg_string())
 
     def refresh_target_options(self, reload_fields: bool = True):
         current = self.preview.scope_var.get()
@@ -101,6 +145,22 @@ class PreviewController(BaseController):
 
     def on_background_theme_changed(self, _event=None):
         self.redraw_preview()
+
+    def on_preview_mousewheel(self, event):
+        if self.session.document.root is None:
+            return None
+        if getattr(event, "num", None) == 4:
+            factor = 1.1
+        elif getattr(event, "num", None) == 5:
+            factor = 1 / 1.1
+        else:
+            delta = getattr(event, "delta", 0)
+            if delta == 0:
+                return None
+            factor = 1.1 if delta > 0 else 1 / 1.1
+        self.zoom_preview(factor)
+        self._schedule_metrics_refresh()
+        return "break"
 
     def on_style_form_changed(self, _event=None):
         if self._suppress_live_update or self.session.document.root is None:
@@ -161,7 +221,7 @@ class PreviewController(BaseController):
         if width_px <= 0:
             messagebox.showerror("尺寸无效", "目标宽度必须大于 0。")
             return
-        self.preview.set_target_width(width_px)
+        self.zoom_proxy.apply_target_width(width_px)
         self.redraw_preview()
 
     def reset_style_settings(self):
@@ -258,22 +318,8 @@ class PreviewController(BaseController):
     def zoom_preview(self, factor: float):
         if self.session.document.root is None:
             return
-        self._ensure_default_width()
-        width_px = max(1, int(round(self.preview.get_target_width() * factor)))
-        self.preview.set_target_width(width_px)
+        self.zoom_proxy.scale_by(factor, self.session)
         self.redraw_preview()
-
-    def _ensure_default_width(self):
-        if self.session.document.root is None:
-            return
-        try:
-            width_px = self.preview.get_target_width()
-            if width_px > 0:
-                return
-        except ValueError:
-            pass
-        _min_x, _min_y, width, _height = self.renderer.get_bounds(self.session)
-        self.preview.set_target_width(max(64, int(round(width))))
 
     def redraw_preview(self):
         if not self.preview.is_open():
@@ -282,14 +328,10 @@ class PreviewController(BaseController):
         self.preview.set_document_loaded(has_document)
         if not has_document:
             self.preview.set_preview_html(EMPTY_PREVIEW_HTML)
+            self.app.code_controller.refresh_if_visible()
             return
-        try:
-            width_px = max(1, self.preview.get_target_width())
-        except ValueError:
-            width_px = 512
-            self.preview.set_target_width(width_px)
+        width_px, zoom_multiplier = self.zoom_proxy.get_render_args(self.session)
         theme_style = get_theme_style(self.preview.background_theme_var.get())
-        viewport_width, viewport_height = self.preview.get_preview_viewport_size()
         html_text, final_width, final_height, zoom_percent = self.renderer.build_document(
             session=self.session,
             target_width=width_px,
@@ -298,8 +340,8 @@ class PreviewController(BaseController):
             element_style_overrides=self.element_style_overrides,
             flash_color=FLASH_COLOR,
             is_flash_on=self._is_flash_on,
-            viewport_width=viewport_width,
-            viewport_height=viewport_height,
+            zoom_multiplier=zoom_multiplier,
         )
         self.preview.update_size_label(final_width, final_height, zoom_percent)
         self.preview.set_preview_html(html_text)
+        self.app.code_controller.refresh_if_visible()

@@ -40,6 +40,8 @@ class EditorView:
         self.element_listbox = self.inspector.element_listbox
         self.text = self.inspector.text
         self.code_text = self.inspector.code_text
+        self.strip_css_button = self.inspector.strip_css_button
+        self.preview_saved_code_button = self.inspector.preview_saved_code_button
         self.inspector_notebook = self.inspector.notebook
         self.apply_text_button = self.inspector.apply_text_button
         self.reload_button = self.inspector.reload_button
@@ -81,6 +83,8 @@ class EditorView:
         self.delete_guide_button.configure(state=button_state)
         self.clear_guides_button.configure(state=button_state)
         self.guide_listbox.configure(state=list_state)
+        self.strip_css_button.configure(state=button_state)
+        self.preview_saved_code_button.configure(state=button_state)
 
     def set_element_labels(self, labels: list[str]):
         self.element_listbox.delete(0, "end")

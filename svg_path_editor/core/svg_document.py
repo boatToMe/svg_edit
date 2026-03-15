@@ -97,6 +97,38 @@ class SVGPathDocument:
             elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS
         ]
 
+    def strip_all_css(self):
+        if self.root is None or self.tree is None:
+            raise RuntimeError("No SVG loaded.")
+
+        parents: dict[int, ET.Element] = {}
+        for parent in self.root.iter():
+            for child in list(parent):
+                parents[id(child)] = parent
+
+        style_nodes = [elem for elem in self.root.iter() if strip_ns(elem.tag) == "style"]
+        for style_node in style_nodes:
+            parent = parents.get(id(style_node))
+            if parent is not None:
+                parent.remove(style_node)
+
+        for element in self.root.iter():
+            if "class" in element.attrib:
+                del element.attrib["class"]
+            if "style" in element.attrib:
+                del element.attrib["style"]
+
+        removable_defs = [
+            elem for elem in self.root.iter()
+            if strip_ns(elem.tag) == "defs" and len(list(elem)) == 0 and not (elem.text or "").strip()
+        ]
+        for defs_node in removable_defs:
+            parent = parents.get(id(defs_node))
+            if parent is not None:
+                parent.remove(defs_node)
+
+        self.editable_elements = [elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
+
     def _build_serializable_tree(self):
         if self.tree is None or self.root is None:
             raise RuntimeError("No SVG loaded.")

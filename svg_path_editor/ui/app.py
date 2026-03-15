@@ -62,6 +62,7 @@ class SVGPathEditor:
     def redraw(self):
         rendering.redraw(self)
         self.preview_controller.redraw_if_open()
+        self.code_controller.refresh_if_visible()
 
     def get_focus_handle_index(self) -> int | None:
         return self.text_controller.get_focus_handle_index()

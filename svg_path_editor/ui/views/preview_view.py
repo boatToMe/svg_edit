@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from .components import BrowserPreview, ColorSettingsGroup, LabeledControl, PreviewCanvasSettings, StrokeSettingsGroup, ZoomControls
+from .components import BrowserPreview, ColorSettingsGroup, LabeledControl, PreviewCanvasSettings, PreviewSizePanel, StrokeSettingsGroup
 
 
 class PreviewWindow:
@@ -10,7 +10,6 @@ class PreviewWindow:
         self.frame: ttk.Frame | None = None
         self.window = None
         self.width_var = tk.StringVar(value="512")
-        self.size_var = tk.StringVar(value="预览尺寸：512 x 512 px")
         self.scope_var = tk.StringVar(value="整体图形")
         self.background_theme_var = tk.StringVar(value="亮色")
         self.stroke_width_var = tk.StringVar()
@@ -20,7 +19,7 @@ class PreviewWindow:
         self.linecap_var = tk.StringVar(value="继承")
         self.linejoin_var = tk.StringVar(value="继承")
         self.browser_preview: BrowserPreview | None = None
-        self.zoom_controls: ZoomControls | None = None
+        self.size_panel: PreviewSizePanel | None = None
         self.canvas_settings: PreviewCanvasSettings | None = None
         self.color_settings: ColorSettingsGroup | None = None
         self.stroke_settings: StrokeSettingsGroup | None = None
@@ -49,11 +48,11 @@ class PreviewWindow:
         self.frame = ttk.Frame(self.parent)
         self.frame.pack(fill="both", expand=True)
 
-        self.zoom_controls = ZoomControls(self.frame, self.width_var, self.size_var)
-        self.apply_button = self.zoom_controls.apply_button
-        self.zoom_in_button = self.zoom_controls.zoom_in_button
-        self.zoom_out_button = self.zoom_controls.zoom_out_button
-        self.width_entry = self.zoom_controls.width_entry
+        self.size_panel = PreviewSizePanel(self.frame, self.width_var)
+        self.apply_button = self.size_panel.apply_button
+        self.zoom_in_button = self.size_panel.zoom_in_button
+        self.zoom_out_button = self.size_panel.zoom_out_button
+        self.width_entry = self.size_panel.width_entry
 
         self.canvas_settings = PreviewCanvasSettings(self.frame, self.background_theme_var)
         self.background_theme_combo = self.canvas_settings.background_theme_combo
@@ -96,6 +95,11 @@ class PreviewWindow:
         frame.tkraise()
         return frame
 
+    def bind_preview_mousewheel(self, callback):
+        if self.browser_preview is None:
+            return
+        self.browser_preview.bind_mousewheel(callback)
+
     def set_scope_options(self, options: list[str]):
         if self.scope_combo is not None:
             self.scope_combo["values"] = options
@@ -105,13 +109,13 @@ class PreviewWindow:
     def set_document_loaded(self, loaded: bool):
         if not self.is_open():
             return
-        self.zoom_controls.set_enabled(loaded)
+        self.size_panel.set_enabled(loaded)
         self.canvas_settings.set_enabled(loaded)
         self.color_settings.set_enabled(loaded)
         self.stroke_settings.set_enabled(loaded)
         self.scope_combo.configure(state="readonly" if loaded else "disabled")
         if not loaded:
-            self.size_var.set("预览尺寸：未加载 SVG")
+            self.size_panel.set_unloaded()
 
     def get_target_width(self) -> int:
         return int(self.width_var.get().strip())
@@ -120,7 +124,7 @@ class PreviewWindow:
         self.width_var.set(str(max(1, int(round(width_px)))))
 
     def update_size_label(self, width_px: int, height_px: int, zoom_percent: int = 100):
-        self.size_var.set(f"预览尺寸：{width_px} x {height_px} px · {zoom_percent}%")
+        self.size_panel.update_metrics(width_px, height_px, zoom_percent)
 
     def set_preview_html(self, html_text: str):
         if self.browser_preview is None:

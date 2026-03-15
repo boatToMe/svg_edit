@@ -9,7 +9,6 @@ SVG_NS = "http://www.w3.org/2000/svg"
 SUPPORTED_TAGS = {"path", "line", "polygon"}
 FLASH_STROKE_WIDTH = "2.5"
 STYLE_OVERRIDE_KEYS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"}
-DEFAULT_PADDING = 24
 
 
 class BrowserPreviewRenderer:
@@ -30,26 +29,14 @@ class BrowserPreviewRenderer:
         min_y = min(ys)
         return (min_x, min_y, max(1.0, max(xs) - min_x), max(1.0, max(ys) - min_y))
 
-    def build_document(
+    def build_svg_markup(
         self,
         session,
-        target_width,
-        theme_style,
         global_style_override,
         element_style_overrides,
         flash_color,
         is_flash_on,
-        viewport_width=None,
-        viewport_height=None,
     ):
-        min_x, min_y, width, height = self.get_bounds(session)
-        width_px = max(1, int(target_width))
-        height_px = max(1, int(round(width_px * height / max(width, 1.0))))
-        initial_scale = self._compute_initial_scale(width_px, height_px, viewport_width, viewport_height)
-        rendered_width = max(1, int(round(width_px * initial_scale)))
-        rendered_height = max(1, int(round(height_px * initial_scale)))
-        zoom_percent = max(1, int(round(initial_scale * 100)))
-
         root_copy = copy.deepcopy(session.document.root)
         elements = [elem for elem in root_copy.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
         for index, element in enumerate(elements):
@@ -60,27 +47,61 @@ class BrowserPreviewRenderer:
             self._apply_override(element, override)
 
         ET.register_namespace("", SVG_NS)
-        svg_markup = ET.tostring(root_copy, encoding="unicode")
+        return ET.tostring(root_copy, encoding="unicode")
+
+    def build_document(
+        self,
+        session,
+        target_width,
+        theme_style,
+        global_style_override,
+        element_style_overrides,
+        flash_color,
+        is_flash_on,
+        zoom_multiplier=1.0,
+    ):
+        _min_x, _min_y, width, height = self.get_bounds(session)
+        width_px = max(1, int(target_width))
+        height_px = max(1, int(round(width_px * height / max(width, 1.0))))
+        initial_scale = max(0.05, zoom_multiplier)
+        rendered_width = max(1, int(round(width_px * initial_scale)))
+        rendered_height = max(1, int(round(height_px * initial_scale)))
+        zoom_percent = max(1, int(round(initial_scale * 100)))
+
+        svg_markup = self.build_svg_markup(
+            session=session,
+            global_style_override=global_style_override,
+            element_style_overrides=element_style_overrides,
+            flash_color=flash_color,
+            is_flash_on=is_flash_on,
+        )
         title = html.escape(str(session.document.file_path) if session.document.file_path else "SVG 预览")
         html_text = self._wrap_html(svg_markup, title, width_px, height_px, initial_scale, theme_style)
         return html_text, rendered_width, rendered_height, zoom_percent
 
-    def _compute_initial_scale(self, width_px: int, height_px: int, viewport_width, viewport_height) -> float:
-        if not viewport_width or not viewport_height:
-            return 1.0
-        usable_width = max(1, int(viewport_width) - DEFAULT_PADDING * 2)
-        usable_height = max(1, int(viewport_height) - DEFAULT_PADDING * 2)
-        return min(
-            max(usable_width / max(width_px, 1), 0.05),
-            max(usable_height / max(height_px, 1), 0.05),
+    def build_svg_code(
+        self,
+        session,
+        global_style_override,
+        element_style_overrides,
+        flash_color,
+        is_flash_on,
+    ):
+        svg_markup = self.build_svg_markup(
+            session=session,
+            global_style_override=global_style_override,
+            element_style_overrides=element_style_overrides,
+            flash_color=flash_color,
+            is_flash_on=is_flash_on,
         )
+        return '<?xml version="1.0" encoding="utf-8"?>\n' + svg_markup
 
     def _wrap_html(self, svg_markup: str, title: str, width_px: int, height_px: int, initial_scale: float, theme_style: dict[str, str]) -> str:
         return f"""<!doctype html>
-<html lang=\"zh-CN\">
+<html lang="zh-CN">
 <head>
-  <meta charset=\"utf-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{title}</title>
   <style>
     html, body {{
@@ -92,7 +113,7 @@ class BrowserPreviewRenderer:
     body {{
       background: {theme_style['background']};
       color: #111827;
-      font-family: \"Segoe UI\", sans-serif;
+      font-family: "Segoe UI", sans-serif;
       user-select: none;
       cursor: default;
     }}
@@ -122,7 +143,7 @@ class BrowserPreviewRenderer:
   </style>
 </head>
 <body>
-  <div id=\"viewport\"><div id=\"content\">{svg_markup}</div></div>
+  <div id="viewport"><div id="content">{svg_markup}</div></div>
   <script>
     (() => {{
       const viewport = document.getElementById('viewport');
@@ -149,18 +170,6 @@ class BrowserPreviewRenderer:
         const viewHeight = viewport.clientHeight;
         translateX = Math.round((viewWidth - baseWidth * scale) / 2);
         translateY = Math.round((viewHeight - baseHeight * scale) / 2);
-        applyTransform();
-      }}
-
-      function zoomAt(clientX, clientY, factor) {{
-        const rect = viewport.getBoundingClientRect();
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-        const nextScale = Math.min(32, Math.max(0.05, scale * factor));
-        const ratio = nextScale / scale;
-        translateX = x - (x - translateX) * ratio;
-        translateY = y - (y - translateY) * ratio;
-        scale = nextScale;
         applyTransform();
       }}
 
@@ -205,12 +214,6 @@ class BrowserPreviewRenderer:
         dragging = false;
         document.body.style.cursor = panMode ? 'grab' : 'default';
       }});
-
-      viewport.addEventListener('wheel', event => {{
-        const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
-        zoomAt(event.clientX, event.clientY, factor);
-        event.preventDefault();
-      }}, {{ passive: false }});
 
       window.addEventListener('resize', centerContent);
       centerContent();
