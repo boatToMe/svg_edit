@@ -95,10 +95,10 @@ class PreviewWindow:
         frame.tkraise()
         return frame
 
-    def bind_preview_mousewheel(self, callback):
+    def bind_preview_wheel_delta(self, callback):
         if self.browser_preview is None:
             return
-        self.browser_preview.bind_mousewheel(callback)
+        self.browser_preview.bind_wheel_delta(callback)
 
     def set_scope_options(self, options: list[str]):
         if self.scope_combo is not None:

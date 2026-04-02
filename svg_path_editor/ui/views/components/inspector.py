@@ -284,5 +284,5 @@ class InspectorSidebar:
     def _build(self):
         self.frame.pack(fill="both", expand=True)
         self.notebook.pack(fill="both", expand=True)
-        self.notebook.add(self.edit_tab.frame, text="编辑")
+        self.notebook.add(self.edit_tab.frame, text="图形")
         self.notebook.add(self.code_tab.frame, text="代码")

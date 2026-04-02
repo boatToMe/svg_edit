@@ -9,6 +9,7 @@ SVG_NS = "http://www.w3.org/2000/svg"
 SUPPORTED_TAGS = {"path", "line", "polygon"}
 FLASH_STROKE_WIDTH = "2.5"
 STYLE_OVERRIDE_KEYS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"}
+PREVIEW_WHEEL_BRIDGE_NAME = "previewWheel"
 
 
 class BrowserPreviewRenderer:
@@ -173,6 +174,16 @@ class BrowserPreviewRenderer:
         applyTransform();
       }}
 
+      async function notifyWheel(deltaY) {{
+        if (deltaY === 0 || typeof window.{PREVIEW_WHEEL_BRIDGE_NAME} !== 'function') {{
+          return;
+        }}
+        try {{
+          await window.{PREVIEW_WHEEL_BRIDGE_NAME}(deltaY);
+        }} catch (_error) {{
+        }}
+      }}
+
       window.addEventListener('keydown', event => {{
         if (event.code === 'Space') {{
           panMode = true;
@@ -201,6 +212,12 @@ class BrowserPreviewRenderer:
         document.body.style.cursor = 'grabbing';
         event.preventDefault();
       }});
+
+      viewport.addEventListener('wheel', event => {{
+        if (event.deltaY === 0) return;
+        event.preventDefault();
+        notifyWheel(event.deltaY);
+      }}, {{ passive: false }});
 
       window.addEventListener('mousemove', event => {{
         if (!dragging) return;

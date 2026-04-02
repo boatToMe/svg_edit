@@ -1,0 +1,18 @@
+time: 2026-03-31T00:37:46.471231
+source: 子进程异常退出
+python: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]
+platform: Windows-11-10.0.26200-SP0
+return_code: 3221226505
+
+[stdout]
+<empty>
+
+[stderr]
+Fatal Python error: PyEval_RestoreThread: the function must be called with the GIL held, after Python initialization and before Python finalization, but the GIL is released (the current Python thread state is NULL)
+Python runtime state: initialized
+
+Current thread 0x00005190 (most recent call first):
+  File "C:\Users\11971\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 1613 in mainloop
+  File "D:\project\svg_edit\app.py", line 22 in run_application
+  File "D:\project\svg_edit\app.py", line 31 in main
+  File "D:\project\svg_edit\app.py", line 35 in <module>

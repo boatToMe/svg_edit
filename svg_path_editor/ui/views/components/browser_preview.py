@@ -1,7 +1,11 @@
 import ctypes
+from queue import Empty, Queue
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from tkinter import ttk
+
+from ...preview.browser_renderer import PREVIEW_WHEEL_BRIDGE_NAME
 
 
 def _vendor_root() -> Path:
@@ -16,52 +20,36 @@ if vendor_root.exists():
 
 try:
     from tkwebview import TkWebview
-    from tkwebview.core import webview_native_handle_kind_t
 except Exception:  # pragma: no cover - runtime fallback
     TkWebview = None
-    webview_native_handle_kind_t = None
 
-
-WM_MOUSEWHEEL = 0x020A
-GWL_WNDPROC = -4
 
 if sys.platform == "win32":
     user32 = ctypes.windll.user32
-    WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_longlong, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p)
-    SetWindowLongPtr = user32.SetWindowLongPtrW
-    SetWindowLongPtr.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
-    SetWindowLongPtr.restype = ctypes.c_void_p
-    CallWindowProc = user32.CallWindowProcW
-    CallWindowProc.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
-    CallWindowProc.restype = ctypes.c_longlong
+    SetFocus = user32.SetFocus
+    SetFocus.argtypes = [ctypes.c_void_p]
+    SetFocus.restype = ctypes.c_void_p
 else:  # pragma: no cover - platform fallback
     user32 = None
-    WNDPROC = None
-    SetWindowLongPtr = None
-    CallWindowProc = None
-
-
-class _WheelEvent:
-    def __init__(self, delta: int):
-        self.delta = delta
-        self.num = None
+    SetFocus = None
 
 
 class BrowserPreview:
     def __init__(self, parent):
         self.frame = ttk.LabelFrame(parent, text="浏览器预览", padding=8)
-        self.viewport = ttk.Frame(self.frame)
+        self.viewport = ttk.Frame(self.frame, takefocus=True)
         self.viewport.pack(fill="both", expand=True)
         self.browser: TkWebview | None = None
         self.fallback_label: ttk.Label | None = None
         self._last_html = ""
         self._pending_set_html = False
-        self._mousewheel_bound = False
-        self._wheel_callback = None
-        self._native_browser_hwnd = None
-        self._original_wndproc = None
-        self._wndproc_ref = None
+        self._wheel_delta_callback: Callable[[float], None] | None = None
+        self._wheel_bridge_bound = False
+        self._wheel_delta_queue: Queue[float] = Queue()
+        self._wheel_pump_after_id = None
+        self._wheel_pump_interval_ms = 16
         self._build()
+        self._schedule_wheel_pump()
 
     def _build(self):
         if TkWebview is None:
@@ -70,6 +58,7 @@ class BrowserPreview:
         try:
             self.browser = TkWebview(self.viewport, width=480, height=480)
             self.browser.pack(fill="both", expand=True)
+            self._register_wheel_bridge()
         except Exception:
             self.browser = None
             self._show_fallback("浏览器预览组件初始化失败，无法显示标准 SVG 预览。")
@@ -86,53 +75,62 @@ class BrowserPreview:
         else:
             self.fallback_label.configure(text=text)
 
-    def bind_mousewheel(self, callback):
-        self._wheel_callback = callback
-        if self._mousewheel_bound:
-            return
-        targets = [self.frame, self.viewport]
-        if self.fallback_label is not None:
-            targets.append(self.fallback_label)
-        for target in targets:
-            target.bind("<MouseWheel>", callback, add="+")
-            target.bind("<Button-4>", callback, add="+")
-            target.bind("<Button-5>", callback, add="+")
-            target.bind("<Enter>", lambda _event, widget=target: widget.focus_set(), add="+")
-        self._install_native_mousewheel_hook()
-        self._mousewheel_bound = True
-
-    def _install_native_mousewheel_hook(self):
-        if self.browser is None or self._wheel_callback is None:
-            return
-        if sys.platform != "win32" or webview_native_handle_kind_t is None or SetWindowLongPtr is None:
-            return
-        if self._native_browser_hwnd is not None:
+    def _register_wheel_bridge(self):
+        if self.browser is None or self._wheel_bridge_bound:
             return
         try:
-            hwnd = self.browser.webview.get_native_handle(
-                webview_native_handle_kind_t.WEBVIEW_NATIVE_HANDLE_KIND_UI_WIDGET
-            )
+            self.browser.bindjs(PREVIEW_WHEEL_BRIDGE_NAME, self._handle_wheel_delta)
         except Exception:
             return
-        if not hwnd:
+        self._wheel_bridge_bound = True
+
+    def bind_wheel_delta(self, callback):
+        self._wheel_delta_callback = callback
+
+    def _handle_wheel_delta(self, delta_y):
+        try:
+            wheel_delta = float(delta_y)
+        except (TypeError, ValueError):
+            return None
+        self._wheel_delta_queue.put(wheel_delta)
+        return None
+
+    def _schedule_wheel_pump(self):
+        if self._wheel_pump_after_id is not None or not self.frame.winfo_exists():
             return
-        self._native_browser_hwnd = int(hwnd)
+        self._wheel_pump_after_id = self.frame.after(self._wheel_pump_interval_ms, self._drain_wheel_deltas)
 
-        @WNDPROC
-        def _wndproc(hwnd_value, msg, wparam, lparam):
-            if msg == WM_MOUSEWHEEL and self._wheel_callback is not None:
-                delta = ctypes.c_short((int(wparam) >> 16) & 0xFFFF).value
-                self.frame.after_idle(lambda value=delta: self._dispatch_native_wheel(value))
-                return 0
-            return CallWindowProc(self._original_wndproc, hwnd_value, msg, wparam, lparam)
-
-        self._wndproc_ref = _wndproc
-        self._original_wndproc = SetWindowLongPtr(self._native_browser_hwnd, GWL_WNDPROC, self._wndproc_ref)
-
-    def _dispatch_native_wheel(self, delta: int):
-        if self._wheel_callback is None:
+    def _drain_wheel_deltas(self):
+        self._wheel_pump_after_id = None
+        if not self.frame.winfo_exists():
             return
-        self._wheel_callback(_WheelEvent(delta))
+        while True:
+            try:
+                delta_y = self._wheel_delta_queue.get_nowait()
+            except Empty:
+                break
+            self._dispatch_wheel_delta(delta_y)
+        self._schedule_wheel_pump()
+
+    def _dispatch_wheel_delta(self, delta_y: float):
+        if self._wheel_delta_callback is None or not self.frame.winfo_exists():
+            return
+        self._wheel_delta_callback(delta_y)
+
+    def _focus_preview_host(self):
+        host = self.browser if self.browser is not None else self.viewport
+        if not host.winfo_exists():
+            return
+        try:
+            host.focus_set()
+        except Exception:
+            pass
+        if sys.platform != "win32" or SetFocus is None:
+            return
+        try:
+            SetFocus(ctypes.c_void_p(host.winfo_id()))
+        except Exception:
+            return
 
     def is_available(self) -> bool:
         return self.browser is not None
@@ -148,7 +146,7 @@ class BrowserPreview:
             return
         try:
             self.browser.set_html(self._last_html)
-            self._install_native_mousewheel_hook()
+            self._focus_preview_host()
         except Exception:
             self.browser = None
             self._show_fallback("浏览器预览组件加载 HTML 失败，无法显示标准 SVG 预览。")

@@ -8,7 +8,7 @@ script = ""
 [[actions]]
 name = "运行"
 icon = "run"
-command = "python -m py_compile app.py"
+command = "python app.py"
 
 [[actions]]
 name = "run"
