@@ -3,6 +3,28 @@ from .session import EditorSession
 from .state import InteractionState
 
 
+class AddShapeCommand(EditorCommand):
+    label = "插入基础图形"
+
+    def __init__(self, session: EditorSession, element_xml: str, shape_label: str):
+        self.session = session
+        self.element_xml = element_xml
+        self.shape_label = shape_label
+        self.inserted_index: int | None = None
+        self.previous_index = session.current_index
+        self.label = f"插入基础图形（{shape_label}）"
+
+    def execute(self) -> None:
+        self.inserted_index = self.session.append_element_xml(self.element_xml)
+
+    def undo(self) -> None:
+        if self.inserted_index is None:
+            return
+        self.session.remove_shape(self.inserted_index)
+        if self.previous_index is not None and self.previous_index < len(self.session.document.editable_elements):
+            self.session.load_shape(self.previous_index)
+
+
 class UpdateShapeCommand(EditorCommand):
     label = "更新图形"
 

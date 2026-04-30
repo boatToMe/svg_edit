@@ -1,4 +1,5 @@
 from .browser_preview import BrowserPreview
+from .document_tabs import DocumentTabBar
 from .flow import FlowRow
 from .inspector import InspectorSidebar
 from .preview_controls import ButtonPair, ColorSettingsGroup, LabeledControl, PreviewCanvasSettings, PreviewSizePanel, StrokeSettingsGroup
@@ -7,6 +8,7 @@ from .workspace import CanvasPane, EditorWorkspace, PreviewPane
 
 __all__ = [
     "BrowserPreview",
+    "DocumentTabBar",
     "FlowRow",
     "ButtonPair",
     "LabeledControl",

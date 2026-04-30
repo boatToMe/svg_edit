@@ -11,6 +11,9 @@ NUMBER_PATTERN = re.compile(r"[-+]?(?:\d+\.\d+|\d+\.|\.\d+|\d+)(?:[eE][-+]?\d+)?
 
 class TextController(BaseController):
     def apply_text(self):
+        if self.session.current_index is None or self.session.current_shape is None:
+            messagebox.showinfo("未选中图形", "请先在右侧列表中选择一个图形，或先插入基础图形。")
+            return
         try:
             self.commit_text_if_needed(record_history=True)
             self.app.file_controller.load_path(self.session.current_index, show_toast=False, refit=False)

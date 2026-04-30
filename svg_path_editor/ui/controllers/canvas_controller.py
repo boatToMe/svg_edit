@@ -184,10 +184,8 @@ class CanvasController(BaseController):
         self.state.drag_shape_origin_point = None
         self.state.drag_shape_origin_handles = []
         self.app.guide_controller.refresh_guide_listbox()
-        if self.session.current_index is not None:
-            self.app.file_controller.load_path(self.session.current_index, show_toast=False, refit=False)
-        else:
-            self.app.redraw()
+        self.app.current_document.clear_draft()
+        self.app.refresh_active_document_view(refit=False, restore_draft=False)
 
     def on_undo(self, _event=None):
         command = self.session.history.undo()

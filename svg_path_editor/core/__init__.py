@@ -20,6 +20,7 @@ from .path_ops import (
     tokens_to_d,
     tokens_to_segments,
 )
+from .shape_library import build_basic_shape_element, list_basic_shapes
 from .svg_document import SVGPathDocument, normalize_element_colors_for_css, parse_viewbox, strip_ns
 
 __all__ = [
@@ -50,4 +51,6 @@ __all__ = [
     "text_to_shape",
     "tokens_to_d",
     "tokens_to_segments",
+    "build_basic_shape_element",
+    "list_basic_shapes",
 ]

@@ -88,14 +88,62 @@ class SVGPathDocument:
         self.file_path: Path | None = None
         self.view_box: tuple[float, float, float, float] | None = None
 
+    def _refresh_editable_elements(self):
+        if self.root is None:
+            self.editable_elements = []
+            return
+        self.editable_elements = [elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
+
+    def create_empty(self, width: float = 512.0, height: float = 512.0):
+        svg_root = ET.Element(
+            f"{{{SVG_NS}}}svg",
+            {
+                "version": "1.1",
+                "viewBox": f"0 0 {width:g} {height:g}",
+                "width": f"{width:g}",
+                "height": f"{height:g}",
+            },
+        )
+        self.tree = ET.ElementTree(svg_root)
+        self.root = svg_root
+        self.file_path = None
+        self.view_box = (0.0, 0.0, float(width), float(height))
+        self._refresh_editable_elements()
+
     def load(self, file_path: Path):
         self.tree = ET.parse(file_path)
         self.root = self.tree.getroot()
         self.file_path = file_path
         self.view_box = parse_viewbox(self.root.get("viewBox")) if self.root is not None else None
-        self.editable_elements = [
-            elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS
-        ]
+        self._refresh_editable_elements()
+
+    def append_editable_element(self, element: ET.Element) -> int:
+        if self.root is None:
+            raise RuntimeError("No SVG loaded.")
+        self.root.append(element)
+        self._refresh_editable_elements()
+        return len(self.editable_elements) - 1
+
+    def _find_parent(self, target: ET.Element) -> ET.Element | None:
+        if self.root is None:
+            return None
+        for parent in self.root.iter():
+            for child in list(parent):
+                if child is target:
+                    return parent
+        return None
+
+    def remove_editable_element(self, index: int):
+        if self.root is None:
+            raise RuntimeError("No SVG loaded.")
+        if index < 0 or index >= len(self.editable_elements):
+            raise IndexError(index)
+        target = self.editable_elements[index]
+        parent = self._find_parent(target)
+        if parent is None:
+            raise RuntimeError("Failed to locate parent element.")
+        parent.remove(target)
+        self._refresh_editable_elements()
 
     def strip_all_css(self):
         if self.root is None or self.tree is None:
@@ -127,7 +175,7 @@ class SVGPathDocument:
             if parent is not None:
                 parent.remove(defs_node)
 
-        self.editable_elements = [elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
+        self._refresh_editable_elements()
 
     def _build_serializable_tree(self):
         if self.tree is None or self.root is None:
@@ -155,5 +203,5 @@ class SVGPathDocument:
         tree.write(target, encoding="utf-8", xml_declaration=True)
         self.tree = tree
         self.root = tree.getroot()
-        self.editable_elements = [elem for elem in self.root.iter() if strip_ns(elem.tag) in SUPPORTED_TAGS]
+        self._refresh_editable_elements()
         self.file_path = target

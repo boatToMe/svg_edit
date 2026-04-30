@@ -1,4 +1,5 @@
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from ..core import (
     EditableShape,
@@ -24,14 +25,26 @@ class EditorSession:
         self.current_segments: list[Segment] = []
         self.handles = []
 
-    def open_file(self, file_path: Path):
-        self.document.load(file_path)
-        self.history.reset()
+    def _reset_active_shape_state(self):
         self.current_index = None
         self.current_shape = None
         self.current_tokens = []
         self.current_segments = []
         self.handles = []
+
+    def open_file(self, file_path: Path):
+        self.document.load(file_path)
+        self.history.reset()
+        self._reset_active_shape_state()
+        return self.get_element_labels()
+
+    def create_new_document(self, width: float = 512.0, height: float = 512.0):
+        self.document.create_empty(width, height)
+        self.history.reset()
+        self._reset_active_shape_state()
+        return self.get_element_labels()
+
+    def get_element_labels(self):
         return [f"元素{idx + 1}（{elem.tag.split('}', 1)[-1]}）" for idx, elem in enumerate(self.document.editable_elements)]
 
     def save(self, file_path: Path | None = None):
@@ -91,6 +104,25 @@ class EditorSession:
                 except Exception:
                     continue
         return shapes
+
+    def append_element_xml(self, element_xml: str) -> int:
+        element = ET.fromstring(element_xml)
+        return self.append_element(element)
+
+    def append_element(self, element: ET.Element) -> int:
+        inserted_index = self.document.append_editable_element(element)
+        self.load_shape(inserted_index)
+        return inserted_index
+
+    def remove_shape(self, index: int):
+        self.document.remove_editable_element(index)
+        if self.current_index is None:
+            return
+        if index == self.current_index:
+            self._reset_active_shape_state()
+            return
+        if index < self.current_index:
+            self.current_index -= 1
 
     def get_element_name(self, index: int) -> str:
         return f"元素{index + 1}"

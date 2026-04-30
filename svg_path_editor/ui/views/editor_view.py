@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from .components import EditorToolbar, EditorWorkspace
+from .components import DocumentTabBar, EditorToolbar, EditorWorkspace
 
 
 class EditorView:
@@ -9,7 +9,7 @@ class EditorView:
         self.root = root
         self.root.title("SVG 可视化编辑器")
 
-        self.status_var = tk.StringVar(value="请先打开一个 SVG 文件。")
+        self.status_var = tk.StringVar(value="请先打开或新建一个 SVG 文件。")
         self.guide_axis_var = tk.StringVar(value="x")
         self.guide_value_var = tk.StringVar()
         self.drag_step_var = tk.StringVar(value="1")
@@ -21,6 +21,8 @@ class EditorView:
         self.root.minsize(1480, 820)
 
         self.toolbar = EditorToolbar(self.root)
+        self.document_tabs = DocumentTabBar(self.root)
+        self.document_tabs.pack(fill="x")
         self.workspace = EditorWorkspace(
             self.root,
             self.guide_axis_var,
@@ -28,6 +30,7 @@ class EditorView:
             self.drag_step_var,
         )
 
+        self.new_button = self.toolbar.new_button
         self.open_button = self.toolbar.open_button
         self.save_button = self.toolbar.save_button
         self.save_as_button = self.toolbar.save_as_button
@@ -46,6 +49,7 @@ class EditorView:
         self.apply_text_button = self.inspector.apply_text_button
         self.reload_button = self.inspector.reload_button
         self.batch_replace_button = self.inspector.batch_replace_button
+        self.shape_buttons = self.inspector.shape_buttons
         self.drag_step_entry = self.inspector.drag_step_entry
         self.guide_axis_combo = self.inspector.guide_axis_combo
         self.guide_value_entry = self.inspector.guide_value_entry
@@ -58,7 +62,7 @@ class EditorView:
 
         ttk.Label(self.root, textvariable=self.status_var, anchor="w", padding=(10, 6)).pack(fill="x")
         self.set_document_loaded(False)
-        self.set_code_text("请先打开一个 SVG 文件。")
+        self.set_code_text("请先打开或新建一个 SVG 文件。")
 
     def set_document_loaded(self, loaded: bool):
         button_state = "normal" if loaded else "disabled"
@@ -85,11 +89,19 @@ class EditorView:
         self.guide_listbox.configure(state=list_state)
         self.strip_css_button.configure(state=button_state)
         self.preview_saved_code_button.configure(state=button_state)
+        for button in self.shape_buttons.values():
+            button.configure(state=button_state)
 
     def set_element_labels(self, labels: list[str]):
         self.element_listbox.delete(0, "end")
         for label in labels:
             self.element_listbox.insert("end", label)
+
+    def set_document_tabs(self, labels: list[str], active_index: int | None):
+        self.document_tabs.set_tabs(labels, active_index)
+
+    def get_selected_document_index(self) -> int | None:
+        return self.document_tabs.get_selected_index()
 
     def select_element(self, index: int | None):
         self.element_listbox.selection_clear(0, "end")

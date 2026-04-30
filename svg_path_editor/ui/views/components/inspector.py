@@ -11,6 +11,13 @@ TAB_UNSELECTED_BG = "#6b7280"
 TAB_UNSELECTED_FG = "#f8fafc"
 TAB_HOVER_BG = "#4b5563"
 TABBAR_BG = "#cbd5e1"
+BASIC_SHAPE_BUTTONS: tuple[tuple[str, str], ...] = (
+    ("line", "直线"),
+    ("triangle", "三角形"),
+    ("rectangle", "矩形"),
+    ("diamond", "菱形"),
+    ("arrow", "箭头"),
+)
 
 
 class InspectorNotebook(ttk.Frame):
@@ -127,6 +134,23 @@ class ElementManagerGroup:
         self.listbox.configure(yscrollcommand=scrollbar.set)
 
 
+class BasicShapeGroup:
+    def __init__(self, parent):
+        self.frame = ttk.LabelFrame(parent, text="基础图形", padding=8)
+        self.buttons: dict[str, ttk.Button] = {}
+        self._build()
+
+    def _build(self):
+        self.frame.pack(fill="x", pady=(0, 8))
+        button_row = FlowRow(self.frame)
+        button_row.pack(fill="x")
+        for shape_key, label in BASIC_SHAPE_BUTTONS:
+            button = ttk.Button(button_row.frame, text=label)
+            self.buttons[shape_key] = button
+            button_row.add(button)
+        ttk.Label(self.frame, text="插入后可直接在画布与几何数据区继续编辑。", justify="left").pack(anchor="w", pady=(4, 0))
+
+
 class GuideListActions:
     def __init__(self, parent):
         self.frame = ttk.Frame(parent)
@@ -144,11 +168,13 @@ class EditInspectorTab:
     def __init__(self, parent, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
         self.frame = ttk.Frame(parent, padding=8)
         self.element_manager = None
+        self.basic_shapes = None
         self.element_listbox = None
         self.text = None
         self.apply_text_button = None
         self.reload_button = None
         self.batch_replace_button = None
+        self.shape_buttons: dict[str, ttk.Button] = {}
         self.drag_step_entry = None
         self.guide_axis_combo = None
         self.guide_value_entry = None
@@ -164,6 +190,8 @@ class EditInspectorTab:
     def _build(self, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
         self.element_manager = ElementManagerGroup(self.frame)
         self.element_listbox = self.element_manager.listbox
+        self.basic_shapes = BasicShapeGroup(self.frame)
+        self.shape_buttons = self.basic_shapes.buttons
 
         geometry_box = ttk.LabelFrame(self.frame, text="几何数据", padding=8)
         geometry_box.pack(fill="x")
@@ -276,6 +304,7 @@ class InspectorSidebar:
         self.delete_guide_button = self.edit_tab.delete_guide_button
         self.clear_guides_button = self.edit_tab.clear_guides_button
         self.guide_listbox = self.edit_tab.guide_listbox
+        self.shape_buttons = self.edit_tab.shape_buttons
         self.code_text = self.code_tab.text
         self.strip_css_button = self.code_tab.strip_css_button
         self.preview_saved_code_button = self.code_tab.preview_saved_code_button

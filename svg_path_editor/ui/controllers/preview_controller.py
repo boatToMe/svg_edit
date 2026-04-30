@@ -71,6 +71,17 @@ class PreviewController(BaseController):
     def reset_zoom_state(self):
         self.zoom_proxy.reset()
 
+    def reset_document_state(self):
+        if self.flash_after_id is not None and self.preview.frame is not None:
+            self.preview.frame.after_cancel(self.flash_after_id)
+        self.flash_after_id = None
+        self.flash_target_index = None
+        self.flash_step_remaining = 0
+        self.global_style_override = {}
+        self.element_style_overrides = {}
+        self.target_label_to_index = {SCOPE_ALL: None}
+        self.reset_zoom_state()
+
     def get_preview_svg_code(self) -> str:
         if self.session.document.root is None:
             return ""
