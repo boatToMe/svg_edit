@@ -117,21 +117,120 @@ class InspectorNotebook(ttk.Frame):
                 )
 
 
+ITEM_BG = "#ffffff"
+ITEM_SELECTED_BG = "#dbeafe"
+ITEM_HOVER_BG = "#f1f5f9"
+ITEM_FG = "#0f172a"
+DELETE_BTN_BG = "#ef4444"
+DELETE_BTN_FG = "#ffffff"
+DELETE_BTN_HOVER_BG = "#dc2626"
+LIST_HEIGHT = 6
+
+
 class ElementManagerGroup:
     def __init__(self, parent):
         self.frame = ttk.LabelFrame(parent, text="元素管理", padding=8)
-        self.listbox = None
+        self._items: list[dict] = []
+        self._selected_index: int | None = None
+        self._delete_callbacks: list = []
+        self._select_callbacks: list = []
+        self._context_menu = None
         self._build()
 
     def _build(self):
         self.frame.pack(fill="x", pady=(0, 8))
-        list_frame = ttk.Frame(self.frame)
-        list_frame.pack(fill="x")
-        self.listbox = tk.Listbox(list_frame, height=6, exportselection=False)
-        self.listbox.pack(side="left", fill="x", expand=True)
-        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.listbox.yview)
+        container = ttk.Frame(self.frame)
+        container.pack(fill="x")
+        self._canvas = tk.Canvas(container, height=LIST_HEIGHT * 28, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
+        self._scroll_frame = ttk.Frame(self._canvas)
+        self._scroll_frame.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
+        self._canvas_window = self._canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
+        self._canvas.configure(yscrollcommand=scrollbar.set)
+        self._canvas.pack(side="left", fill="x", expand=True)
         scrollbar.pack(side="right", fill="y")
-        self.listbox.configure(yscrollcommand=scrollbar.set)
+        self._canvas.bind("<Configure>", self._on_canvas_resize)
+
+        self._context_menu = tk.Menu(self.frame, tearoff=0)
+        self._context_menu.add_command(label="删除元素", command=self._on_context_delete)
+
+    def _on_canvas_resize(self, event):
+        self._canvas.itemconfig(self._canvas_window, width=event.width)
+
+    def _on_context_delete(self):
+        if self._selected_index is not None:
+            self._notify_delete(self._selected_index)
+
+    def _notify_delete(self, index: int):
+        for callback in self._delete_callbacks:
+            callback(index)
+
+    def on_delete(self, callback):
+        self._delete_callbacks.append(callback)
+
+    def on_select(self, callback):
+        self._select_callbacks.append(callback)
+
+    def set_labels(self, labels: list[str]):
+        for item in self._items:
+            item["frame"].destroy()
+        self._items.clear()
+        self._selected_index = None
+        for idx, label in enumerate(labels):
+            self._add_item_row(idx, label)
+
+    def _add_item_row(self, index: int, label: str):
+        row = tk.Frame(self._scroll_frame, bg=ITEM_BG, padx=4, pady=2)
+        row.pack(fill="x", pady=1)
+        lbl = tk.Label(row, text=label, bg=ITEM_BG, fg=ITEM_FG, anchor="w", padx=4)
+        lbl.pack(side="left", fill="x", expand=True)
+        del_btn = tk.Button(
+            row, text="✕", bg=DELETE_BTN_BG, fg=DELETE_BTN_FG,
+            activebackground=DELETE_BTN_HOVER_BG, activeforeground=DELETE_BTN_FG,
+            bd=0, padx=6, pady=0, cursor="hand2",
+            command=lambda idx=index: self._notify_delete(idx),
+        )
+        del_btn.pack(side="right")
+
+        for widget in (row, lbl):
+            widget.bind("<Button-1>", lambda e, idx=index: self._select_item(idx))
+            widget.bind("<Button-3>", lambda e, idx=index: self._on_right_click(e, idx))
+
+        self._items.append({"frame": row, "label": lbl, "button": del_btn, "index": index})
+
+    def _select_item(self, index: int, *, notify: bool = True):
+        self._selected_index = index
+        for idx, item in enumerate(self._items):
+            bg = ITEM_SELECTED_BG if idx == index else ITEM_BG
+            item["frame"].configure(bg=bg)
+            item["label"].configure(bg=bg)
+        if notify:
+            for callback in self._select_callbacks:
+                callback(index)
+
+    def _on_right_click(self, event, index: int):
+        self._select_item(index, notify=False)
+        self._context_menu.post(event.x_root, event.y_root)
+
+    def get_selected_index(self) -> int | None:
+        return self._selected_index
+
+    def select(self, index: int | None):
+        if index is None:
+            self._selected_index = None
+            for item in self._items:
+                item["frame"].configure(bg=ITEM_BG)
+                item["label"].configure(bg=ITEM_BG)
+            return
+        if 0 <= index < len(self._items):
+            self._selected_item_update(index)
+
+    def _selected_item_update(self, index: int):
+        self._selected_index = index
+        for idx, item in enumerate(self._items):
+            bg = ITEM_SELECTED_BG if idx == index else ITEM_BG
+            item["frame"].configure(bg=bg)
+            item["label"].configure(bg=bg)
 
 
 class BasicShapeGroup:
@@ -169,7 +268,6 @@ class EditInspectorTab:
         self.frame = ttk.Frame(parent, padding=8)
         self.element_manager = None
         self.basic_shapes = None
-        self.element_listbox = None
         self.text = None
         self.apply_text_button = None
         self.reload_button = None
@@ -189,7 +287,6 @@ class EditInspectorTab:
 
     def _build(self, guide_axis_var: tk.StringVar, guide_value_var: tk.StringVar, drag_step_var: tk.StringVar):
         self.element_manager = ElementManagerGroup(self.frame)
-        self.element_listbox = self.element_manager.listbox
         self.basic_shapes = BasicShapeGroup(self.frame)
         self.shape_buttons = self.basic_shapes.buttons
 
@@ -290,7 +387,7 @@ class InspectorSidebar:
         self.edit_tab = EditInspectorTab(self.notebook.content, guide_axis_var, guide_value_var, drag_step_var)
         self.code_tab = CodeInspectorTab(self.notebook.content)
 
-        self.element_listbox = self.edit_tab.element_listbox
+        self.element_manager = self.edit_tab.element_manager
         self.text = self.edit_tab.text
         self.apply_text_button = self.edit_tab.apply_text_button
         self.reload_button = self.edit_tab.reload_button

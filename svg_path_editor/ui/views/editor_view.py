@@ -40,7 +40,7 @@ class EditorView:
         self.canvas = self.workspace.canvas_pane.canvas
         self.inspector = self.workspace.inspector
 
-        self.element_listbox = self.inspector.element_listbox
+        self.element_manager = self.inspector.element_manager
         self.text = self.inspector.text
         self.code_text = self.inspector.code_text
         self.strip_css_button = self.inspector.strip_css_button
@@ -67,13 +67,11 @@ class EditorView:
     def set_document_loaded(self, loaded: bool):
         button_state = "normal" if loaded else "disabled"
         entry_state = "normal" if loaded else "disabled"
-        list_state = "normal" if loaded else "disabled"
         combo_state = "readonly" if loaded else "disabled"
 
         self.save_button.configure(state=button_state)
         self.save_as_button.configure(state=button_state)
         self.preview_button.configure(state=button_state)
-        self.element_listbox.configure(state=list_state)
         self.text.configure(state=entry_state)
         self.apply_text_button.configure(state=button_state)
         self.reload_button.configure(state=button_state)
@@ -86,16 +84,14 @@ class EditorView:
         self.add_focus_y_button.configure(state=button_state)
         self.delete_guide_button.configure(state=button_state)
         self.clear_guides_button.configure(state=button_state)
-        self.guide_listbox.configure(state=list_state)
+        self.guide_listbox.configure(state="normal" if loaded else "disabled")
         self.strip_css_button.configure(state=button_state)
         self.preview_saved_code_button.configure(state=button_state)
         for button in self.shape_buttons.values():
             button.configure(state=button_state)
 
     def set_element_labels(self, labels: list[str]):
-        self.element_listbox.delete(0, "end")
-        for label in labels:
-            self.element_listbox.insert("end", label)
+        self.element_manager.set_labels(labels)
 
     def set_document_tabs(self, labels: list[str], active_index: int | None):
         self.document_tabs.set_tabs(labels, active_index)
@@ -104,16 +100,10 @@ class EditorView:
         return self.document_tabs.get_selected_index()
 
     def select_element(self, index: int | None):
-        self.element_listbox.selection_clear(0, "end")
-        if index is None:
-            return
-        self.element_listbox.selection_set(index)
-        self.element_listbox.activate(index)
-        self.element_listbox.see(index)
+        self.element_manager.select(index)
 
     def get_selected_element_index(self) -> int | None:
-        selection = self.element_listbox.curselection()
-        return selection[0] if selection else None
+        return self.element_manager.get_selected_index()
 
     def set_geometry_text(self, text: str):
         self.text.configure(state="normal")

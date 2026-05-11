@@ -2,6 +2,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 
 from ...application import DocumentContext, EditorSession, InteractionState
+from ...application.operations import DeleteElementCommand
 from .base import BaseController
 
 
@@ -82,10 +83,29 @@ class FileController(BaseController):
         if index is not None:
             self.app.activate_document(index, refit=False, restore_draft=True)
 
-    def on_element_selected(self, _event=None):
-        index = self.view.get_selected_element_index()
+    def on_element_selected(self, index=None):
+        if index is None:
+            index = self.view.get_selected_element_index()
         if index is not None:
             self.load_path(index, show_toast=True)
+
+    def delete_element(self, index: int):
+        if not self.session.document.editable_elements:
+            return
+        if index < 0 or index >= len(self.session.document.editable_elements):
+            return
+        command = DeleteElementCommand(self.session, index, on_refresh=self._after_delete)
+        self.session.history.execute(command)
+
+    def _after_delete(self):
+        self.view.set_element_labels(self.session.get_element_labels())
+        if self.session.document.editable_elements:
+            new_index = min(self.session.current_index or 0, len(self.session.document.editable_elements) - 1)
+            self.load_path(new_index, show_toast=False, refit=False)
+        else:
+            self.view.select_element(None)
+            self.view.set_geometry_text("")
+            self.app.redraw()
 
     def reload_selected_path(self):
         if self.session.current_index is not None:

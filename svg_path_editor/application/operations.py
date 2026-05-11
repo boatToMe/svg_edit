@@ -1,3 +1,4 @@
+import copy
 from .commands import EditorCommand
 from .session import EditorSession
 from .state import InteractionState
@@ -84,6 +85,41 @@ class DeleteGuideCommand(EditorCommand):
         self.state.custom_guides.insert(self.index, self.removed_guide)
         self.state.selected_guide_index = self.index
         self.state.active_guide_index = None
+
+
+class DeleteElementCommand(EditorCommand):
+    label = "删除元素"
+
+    def __init__(self, session, index: int, on_refresh=None):
+        self.session = session
+        self.index = index
+        self.on_refresh = on_refresh
+        self.removed_element = None
+        self.removed_shape_text = None
+        self.previous_index = session.current_index
+
+    def execute(self) -> None:
+        element = self.session.document.editable_elements[self.index]
+        self.removed_element = copy.deepcopy(element)
+        self.removed_shape_text = self.session.get_shape_text(self.index)
+        self.session.remove_shape(self.index)
+        if self.on_refresh:
+            self.on_refresh()
+
+    def undo(self) -> None:
+        if self.removed_element is None:
+            return
+        self.session.document.root.append(self.removed_element)
+        self.session.document._refresh_editable_elements()
+        new_index = len(self.session.document.editable_elements) - 1
+        if self.index < new_index:
+            elements = self.session.document.editable_elements
+            elements.pop(new_index)
+            elements.insert(self.index, self.removed_element)
+            self.session.document._refresh_editable_elements()
+        self.session.load_shape(self.index)
+        if self.on_refresh:
+            self.on_refresh()
 
 
 class ClearGuidesCommand(EditorCommand):
