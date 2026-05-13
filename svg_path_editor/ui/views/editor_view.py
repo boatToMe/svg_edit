@@ -45,6 +45,8 @@ class EditorView:
         self.code_text = self.inspector.code_text
         self.strip_css_button = self.inspector.strip_css_button
         self.preview_saved_code_button = self.inspector.preview_saved_code_button
+        self.format_code_button = self.inspector.format_code_button
+        self.toggle_line_numbers_button = self.inspector.toggle_line_numbers_button
         self.inspector_notebook = self.inspector.notebook
         self.apply_text_button = self.inspector.apply_text_button
         self.reload_button = self.inspector.reload_button
@@ -87,6 +89,7 @@ class EditorView:
         self.guide_listbox.configure(state="normal" if loaded else "disabled")
         self.strip_css_button.configure(state=button_state)
         self.preview_saved_code_button.configure(state=button_state)
+        self.format_code_button.configure(state=button_state)
         for button in self.shape_buttons.values():
             button.configure(state=button_state)
 
@@ -114,10 +117,8 @@ class EditorView:
         return self.text.get("1.0", "end").strip()
 
     def set_code_text(self, text: str):
-        self.code_text.configure(state="normal")
-        self.code_text.delete("1.0", "end")
-        self.code_text.insert("1.0", text)
-        self.code_text.configure(state="disabled")
+        code_view = self.inspector.code_view
+        code_view.set_text(text, state="disabled")
 
     def get_drag_step(self) -> float:
         try:

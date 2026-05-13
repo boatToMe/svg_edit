@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
+from xml.dom import minidom
+
+from .components.line_number_text import LineNumberText
 
 
 class SVGCodePreviewDialog:
@@ -9,6 +12,8 @@ class SVGCodePreviewDialog:
         self.text: tk.Text | None = None
         self.confirm_button = None
         self.cancel_button = None
+        self.format_button = None
+        self._code_view = None
         self._confirmed = False
         self._view_only = False
 
@@ -27,18 +32,14 @@ class SVGCodePreviewDialog:
         self.message_label = ttk.Label(body, text="下面是即将保存的 SVG 代码。确认无误后再保存。", justify="left")
         self.message_label.pack(anchor="w", pady=(0, 8))
 
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        self.text = tk.Text(text_frame, wrap="none", font=("Consolas", 10))
-        self.text.pack(side="left", fill="both", expand=True)
-        y_scroll = ttk.Scrollbar(text_frame, orient="vertical", command=self.text.yview)
-        y_scroll.pack(side="right", fill="y")
-        x_scroll = ttk.Scrollbar(body, orient="horizontal", command=self.text.xview)
-        x_scroll.pack(fill="x")
-        self.text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        self._code_view = LineNumberText(body, wrap="char")
+        self._code_view.frame.pack(fill="both", expand=True)
+        self.text = self._code_view.text
 
         buttons = ttk.Frame(body)
         buttons.pack(fill="x", pady=(8, 0))
+        self.format_button = ttk.Button(buttons, text="整理代码格式", command=self._on_format)
+        self.format_button.pack(side="left")
         self.confirm_button = ttk.Button(buttons, text="确认保存", command=self._on_confirm)
         self.confirm_button.pack(side="right")
         self.cancel_button = ttk.Button(buttons, text="取消", command=self._on_cancel)
@@ -59,12 +60,11 @@ class SVGCodePreviewDialog:
         window.title(title)
         self.message_label.configure(text=message)
         self.confirm_button.configure(text=confirm_text)
-        self.cancel_button.configure(text="取消" if not view_only else "关闭")
-        if self.text is not None:
-            self.text.configure(state="normal")
-            self.text.delete("1.0", "end")
-            self.text.insert("1.0", svg_code)
-            self.text.configure(state="disabled")
+        if view_only:
+            self.cancel_button.pack_forget()
+        else:
+            self.cancel_button.pack(side="right", padx=(0, 8))
+        self._code_view.set_text(svg_code, state="disabled")
         window.deiconify()
         window.lift()
         window.focus_force()
@@ -78,6 +78,23 @@ class SVGCodePreviewDialog:
     def _on_cancel(self):
         self._confirmed = False
         self._close()
+
+    def _on_format(self):
+        if self._code_view is None:
+            return
+        current_code = self._code_view.get_text()
+        if not current_code:
+            return
+        try:
+            dom = minidom.parseString(current_code)
+            formatted = dom.toprettyxml(indent="  ", encoding=None)
+            lines = formatted.split("\n")
+            if lines and lines[0].startswith("<?xml"):
+                lines = lines[1:]
+            formatted = "\n".join(lines).strip()
+            self._code_view.set_text(formatted, state="disabled")
+        except Exception:
+            pass
 
     def _close(self):
         if self.window is None or not self.window.winfo_exists():

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .flow import FlowRow
+from .line_number_text import LineNumberText
 from .preview_controls import ButtonPair
 
 
@@ -354,30 +355,31 @@ class CodeInspectorTab:
         self.frame = ttk.Frame(parent, padding=8)
         self.strip_css_button = None
         self.preview_saved_code_button = None
+        self.format_code_button = None
+        self.toggle_line_numbers_button = None
         self.text = None
+        self._code_view = None
         self._build()
 
     def _build(self):
         code_box = ttk.LabelFrame(self.frame, text="SVG 代码", padding=8)
         code_box.pack(fill="both", expand=True)
-        text_frame = ttk.Frame(code_box)
-        text_frame.pack(fill="both", expand=True)
-        self.text = tk.Text(text_frame, wrap="none", font=("Consolas", 10), state="disabled")
-        self.text.pack(side="left", fill="both", expand=True)
-        y_scroll = ttk.Scrollbar(text_frame, orient="vertical", command=self.text.yview)
-        y_scroll.pack(side="right", fill="y")
-        x_scroll = ttk.Scrollbar(code_box, orient="horizontal", command=self.text.xview)
-        x_scroll.pack(fill="x", pady=(8, 0))
-        self.text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        self._code_view = LineNumberText(code_box, wrap="char", state="disabled")
+        self._code_view.frame.pack(fill="both", expand=True)
+        self.text = self._code_view.text
 
-        actions_box = ttk.LabelFrame(self.frame, text="操作面板", padding=8)
-        actions_box.pack(fill="x", pady=(8, 0))
+        actions_box = ttk.LabelFrame(self.frame, text="操作面板", padding=(8, 12))
+        actions_box.pack(fill="x", pady=(12, 0))
         actions = FlowRow(actions_box)
         actions.pack(fill="x")
         self.strip_css_button = ttk.Button(actions.frame, text="去除所有 CSS")
         self.preview_saved_code_button = ttk.Button(actions.frame, text="预览结果代码")
+        self.format_code_button = ttk.Button(actions.frame, text="整理代码格式")
+        self.toggle_line_numbers_button = ttk.Button(actions.frame, text="隐藏行号")
         actions.add(self.strip_css_button)
         actions.add(self.preview_saved_code_button)
+        actions.add(self.format_code_button)
+        actions.add(self.toggle_line_numbers_button)
 
 
 class InspectorSidebar:
@@ -403,8 +405,11 @@ class InspectorSidebar:
         self.guide_listbox = self.edit_tab.guide_listbox
         self.shape_buttons = self.edit_tab.shape_buttons
         self.code_text = self.code_tab.text
+        self.code_view = self.code_tab._code_view
         self.strip_css_button = self.code_tab.strip_css_button
         self.preview_saved_code_button = self.code_tab.preview_saved_code_button
+        self.format_code_button = self.code_tab.format_code_button
+        self.toggle_line_numbers_button = self.code_tab.toggle_line_numbers_button
         self._build()
 
     def _build(self):

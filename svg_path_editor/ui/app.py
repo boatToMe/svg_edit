@@ -71,6 +71,9 @@ class SVGPathEditor:
 
         self.view.element_manager.on_select(self._guard(lambda index: self.file_controller.on_element_selected(index), "选择元素"))
         self.view.element_manager.on_delete(self._guard(lambda index: self.file_controller.delete_element(index), "删除元素"))
+        self.view.strip_css_button.configure(command=self._guard(self.code_controller.strip_all_css, "去除所有 CSS"))
+        self.view.preview_saved_code_button.configure(command=self._guard(self.code_controller.preview_saved_code, "预览结果代码"))
+        self.view.format_code_button.configure(command=self._guard(self.code_controller.format_code, "整理代码格式"))
         self.view.guide_listbox.bind("<<ListboxSelect>>", self._guard(self.guide_controller.on_guide_selected, "选择辅助线"))
         self.view.canvas.bind("<Configure>", self._guard(lambda event: self.redraw(), "重绘画布"))
         self.view.canvas.bind("<ButtonPress-1>", self._guard(self.canvas_controller.on_left_down, "画布按下"))
