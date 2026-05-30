@@ -259,7 +259,7 @@ class ElementManagerGroup:
 
 class BasicShapeGroup:
     def __init__(self, parent):
-        self.frame = ttk.LabelFrame(parent, text="基础图形", padding=8)
+        self.frame = ttk.LabelFrame(parent, text="图形", padding=8)
         self.buttons: dict[str, ttk.Button] = {}
         self._build()
 
@@ -271,7 +271,6 @@ class BasicShapeGroup:
             button = ttk.Button(button_row.frame, text=label)
             self.buttons[shape_key] = button
             button_row.add(button)
-        ttk.Label(self.frame, text="插入后可直接在画布与几何数据区继续编辑。", justify="left").pack(anchor="w", pady=(4, 0))
 
 
 class GuideListActions:
@@ -338,7 +337,6 @@ class EditInspectorTab:
         self.drag_step_entry = ttk.Entry(step_row.frame, textvariable=drag_step_var, width=10)
         step_row.add(self.drag_step_entry)
         step_row.add(ttk.Label(step_row.frame, text="px"))
-        ttk.Label(editor_box, text="端点和辅助线拖动都会按这个步长吸附。", justify="left").pack(anchor="w", pady=(8, 0))
 
         guide_box = ttk.LabelFrame(self.frame, text="辅助线", padding=8)
         guide_box.pack(fill="x", pady=(8, 0))
@@ -438,5 +436,5 @@ class InspectorSidebar:
     def _build(self):
         self.frame.pack(fill="both", expand=True)
         self.notebook.pack(fill="both", expand=True)
-        self.notebook.add(self.edit_tab.frame, text="图形")
+        self.notebook.add(self.edit_tab.frame, text="编辑")
         self.notebook.add(self.code_tab.frame, text="代码")
