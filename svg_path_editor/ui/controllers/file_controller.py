@@ -1,8 +1,8 @@
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 
 from ...application import DocumentContext, EditorSession, InteractionState
-from ...application.operations import DeleteElementCommand
+from ...application.operations import DeleteElementCommand, RenameElementCommand
 from .base import BaseController
 
 
@@ -106,6 +106,25 @@ class FileController(BaseController):
             self.view.select_element(None)
             self.view.set_geometry_text("")
             self.app.redraw()
+
+    def rename_element(self, index: int):
+        if not self.session.document.editable_elements:
+            return
+        if index < 0 or index >= len(self.session.document.editable_elements):
+            return
+        element = self.session.document.editable_elements[index]
+        current_id = element.get("id", "")
+        new_id = simpledialog.askstring("重命名元素", f"设置元素 {index + 1} 的 id：", initialvalue=current_id, parent=self.root)
+        if new_id is None:
+            return
+        if not self.session.is_id_unique(index, new_id):
+            messagebox.showwarning("名称重复", f"id \"{new_id}\" 已被其他元素使用，请使用其他名称。", parent=self.root)
+            return
+        command = RenameElementCommand(self.session, index, new_id, on_refresh=self._after_rename)
+        self.session.history.execute(command)
+
+    def _after_rename(self):
+        self.view.set_element_labels(self.session.get_element_labels())
 
     def reload_selected_path(self):
         if self.session.current_index is not None:

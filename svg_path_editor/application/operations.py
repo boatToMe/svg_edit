@@ -87,6 +87,36 @@ class DeleteGuideCommand(EditorCommand):
         self.state.active_guide_index = None
 
 
+class RenameElementCommand(EditorCommand):
+    label = "重命名元素"
+
+    def __init__(self, session, index: int, new_id: str, on_refresh=None):
+        self.session = session
+        self.index = index
+        self.new_id = new_id
+        self.on_refresh = on_refresh
+        self.old_id: str | None = None
+
+    def execute(self) -> None:
+        element = self.session.document.editable_elements[self.index]
+        self.old_id = element.get("id")
+        if self.new_id:
+            element.set("id", self.new_id)
+        elif "id" in element.attrib:
+            del element.attrib["id"]
+        if self.on_refresh:
+            self.on_refresh()
+
+    def undo(self) -> None:
+        element = self.session.document.editable_elements[self.index]
+        if self.old_id:
+            element.set("id", self.old_id)
+        elif "id" in element.attrib:
+            del element.attrib["id"]
+        if self.on_refresh:
+            self.on_refresh()
+
+
 class DeleteElementCommand(EditorCommand):
     label = "删除元素"
 

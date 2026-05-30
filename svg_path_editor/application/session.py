@@ -45,7 +45,25 @@ class EditorSession:
         return self.get_element_labels()
 
     def get_element_labels(self):
-        return [f"元素{idx + 1}（{elem.tag.split('}', 1)[-1]}）" for idx, elem in enumerate(self.document.editable_elements)]
+        labels = []
+        for idx, elem in enumerate(self.document.editable_elements):
+            tag = elem.tag.split('}', 1)[-1]
+            elem_id = elem.get("id")
+            if elem_id:
+                labels.append(f"{elem_id}（{tag}）")
+            else:
+                labels.append(f"元素{idx + 1}（{tag}）")
+        return labels
+
+    def is_id_unique(self, index: int, new_id: str) -> bool:
+        if not new_id:
+            return True
+        for idx, elem in enumerate(self.document.editable_elements):
+            if idx == index:
+                continue
+            if elem.get("id") == new_id:
+                return False
+        return True
 
     def save(self, file_path: Path | None = None):
         self.document.save(file_path)

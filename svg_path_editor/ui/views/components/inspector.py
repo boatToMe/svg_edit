@@ -125,6 +125,9 @@ ITEM_FG = "#0f172a"
 DELETE_BTN_BG = "#ef4444"
 DELETE_BTN_FG = "#ffffff"
 DELETE_BTN_HOVER_BG = "#dc2626"
+RENAME_BTN_BG = "#3b82f6"
+RENAME_BTN_FG = "#ffffff"
+RENAME_BTN_HOVER_BG = "#2563eb"
 LIST_HEIGHT = 6
 
 
@@ -134,6 +137,7 @@ class ElementManagerGroup:
         self._items: list[dict] = []
         self._selected_index: int | None = None
         self._delete_callbacks: list = []
+        self._rename_callbacks: list = []
         self._select_callbacks: list = []
         self._context_menu = None
         self._build()
@@ -153,6 +157,7 @@ class ElementManagerGroup:
         self._canvas.bind("<Configure>", self._on_canvas_resize)
 
         self._context_menu = tk.Menu(self.frame, tearoff=0)
+        self._context_menu.add_command(label="重命名元素", command=self._on_context_rename)
         self._context_menu.add_command(label="删除元素", command=self._on_context_delete)
 
     def _on_canvas_resize(self, event):
@@ -162,12 +167,23 @@ class ElementManagerGroup:
         if self._selected_index is not None:
             self._notify_delete(self._selected_index)
 
+    def _on_context_rename(self):
+        if self._selected_index is not None:
+            self._notify_rename(self._selected_index)
+
     def _notify_delete(self, index: int):
         for callback in self._delete_callbacks:
             callback(index)
 
+    def _notify_rename(self, index: int):
+        for callback in self._rename_callbacks:
+            callback(index)
+
     def on_delete(self, callback):
         self._delete_callbacks.append(callback)
+
+    def on_rename(self, callback):
+        self._rename_callbacks.append(callback)
 
     def on_select(self, callback):
         self._select_callbacks.append(callback)
@@ -192,6 +208,13 @@ class ElementManagerGroup:
             command=lambda idx=index: self._notify_delete(idx),
         )
         del_btn.pack(side="right")
+        rename_btn = tk.Button(
+            row, text="✎", bg=RENAME_BTN_BG, fg=RENAME_BTN_FG,
+            activebackground=RENAME_BTN_HOVER_BG, activeforeground=RENAME_BTN_FG,
+            bd=0, padx=6, pady=0, cursor="hand2",
+            command=lambda idx=index: self._notify_rename(idx),
+        )
+        rename_btn.pack(side="right", padx=(0, 2))
 
         for widget in (row, lbl):
             widget.bind("<Button-1>", lambda e, idx=index: self._select_item(idx))
